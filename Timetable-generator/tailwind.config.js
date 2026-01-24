@@ -1,26 +1,30 @@
 module.exports = {
-  content: ["./src/**/*.{js,jsx}", "./public/index.html"],
+  content: ["./src/**/*.{js,jsx,ts,tsx}", "./public/index.html"],
   darkMode: "class",
   theme: {
     extend: {
       colors: {
-        primary: "var(--color-primary)",
-        secondary: "var(--color-secondary)",
-        danger: "var(--color-danger)",
-        success: "var(--color-success)",
-        warning: "var(--color-warning)",
-      },
-      spacing: {
-        xs: "var(--spacing-xs)",
-        sm: "var(--spacing-sm)",
-        md: "var(--spacing-md)",
-        lg: "var(--spacing-lg)",
-        xl: "var(--spacing-xl)",
+        brick: {
+          DEFAULT: "#b8846f",
+          deep: "#a67660",
+          dark: "#8a5b47",
+        },
+        gold: {
+          DEFAULT: "#ffd36b",
+          deep: "#ffb800",
+        },
+        "status-info": "#0b5fa5",
+        "status-success": "#1e7f3b",
+        "status-warning": "#cc9a22",
+        "status-error": "#a84444",
+        surface: "var(--bg-card)",
+        page: "var(--bg-main)",
+        "institutional-primary": "var(--text-primary)",
+        "institutional-secondary": "var(--text-secondary)",
+        "institutional-muted": "var(--text-muted)",
       },
       borderRadius: {
-        sm: "var(--radius-sm)",
-        md: "var(--radius-md)",
-        lg: "var(--radius-lg)",
+        institutional: "8px",
       },
     },
   },

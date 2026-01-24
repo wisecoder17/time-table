@@ -27,78 +27,104 @@ code {
     source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
 }
 
-/* Design System Variables */
+/* ==========================================================================
+   BELLS UNIVERSITY - INSTITUTIONAL DESIGN TOKENS
+   Locked Palette: Brick Brown + Shiny Yellow
+   ========================================================================== */
 :root {
-  --color-primary: #2563eb;
-  --color-secondary: #64748b;
-  --color-danger: #dc2626;
-  --color-success: #16a34a;
-  --color-warning: #ca8a04;
+  /* Brand Tokens (Identity Anchors) */
+  --brand-brick: #b8846f;
+  --brand-brick-deep: #a67660;
+  --brand-gold: #ffd36b;
+  --brand-gold-deep: #ffb800;
 
-  --spacing-xs: 0.25rem;
-  --spacing-sm: 0.5rem;
-  --spacing-md: 1rem;
-  --spacing-lg: 1.5rem;
-  --spacing-xl: 2rem;
+  /* Functional Status Tokens (Deterministic Support) */
+  --status-info: #0b5fa5;
+  --status-success: #1e7f3b;
+  --status-warning: #cc9a22;
+  --status-error: #a84444;
 
-  --radius-sm: 0.375rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
+  /* Neutral Tokens */
+  --bg-page: #f5ede3;
+  --bg-surface: #ffffff;
+  --text-primary: #2b2b2b;
+  --text-secondary: #4a4a4a;
+  --text-muted: #7a7a7a;
+
+  /* Structural Tokens */
+  --radius-institutional: 8px; /* Disciplined geometry */
+  --spacing-unit: 4px;
+
+  /* Legacy mapping for transition compatibility */
+  --color-primary: var(--brand-brick);
+  --color-secondary: var(--brand-brick-deep);
+  --color-success: var(--status-success);
+  --color-warning: var(--status-warning);
+  --color-danger: var(--status-error);
 }
 
-/* Utility Classes */
-.container-main {
-  @apply max-w-7xl mx-auto px-4;
+.dark {
+  --bg-page: #1a1a1a;
+  --bg-surface: #252525;
+  --text-primary: #f5ede3;
+  --text-secondary: #dcdcdc;
+  --text-muted: #a0a0a0;
 }
 
-.input-base {
-  @apply w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm dark:bg-gray-800 dark:border-gray-700 dark:text-white;
+@layer components {
+  .container-main {
+    @apply max-w-7xl mx-auto px-4;
+  }
+
+  .input-base {
+    @apply w-full px-4 py-2.5 border border-brick/10 rounded-institutional focus:outline-none focus:ring-2 focus:ring-brick/20 focus:border-brick/30 shadow-sm bg-bg-input text-text-primary transition-all duration-300;
+  }
+
+  .button-base {
+    @apply font-bold rounded-institutional transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 shadow-sm hover:shadow-md active:scale-95 uppercase tracking-widest text-xs;
+  }
+
+  .button-primary {
+    @apply button-base bg-brick text-white hover:bg-brick-deep focus:ring-brick shadow-brick/20;
+  }
+
+  .button-secondary {
+    @apply button-base bg-surface border border-brick/10 text-brick hover:bg-brick/5 focus:ring-brick/20;
+  }
+
+  .button-danger {
+    @apply button-base bg-status-error text-white hover:bg-status-error/90 focus:ring-status-error/50 shadow-status-error/20;
+  }
+
+  .card-base {
+    @apply bg-surface rounded-institutional shadow-sm border border-brick/5 p-6 transition-all hover:shadow-md hover:border-brick/10;
+  }
+
+  .card-header {
+    @apply border-b border-brick/5 pb-4 mb-4 flex items-center justify-between;
+  }
+
+  .page-header {
+    @apply mb-8;
+  }
+
+  .page-title {
+    @apply text-3xl font-black text-institutional-primary mb-2 tracking-tight;
+  }
+
+  .page-subtitle {
+    @apply text-institutional-secondary font-medium;
+  }
 }
 
-.button-base {
-  @apply font-semibold rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 shadow-sm hover:shadow-md;
-}
+@layer utilities {
+  .text-truncate {
+    @apply truncate;
+  }
 
-.button-primary {
-  @apply button-base bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500 dark:bg-blue-600 dark:hover:bg-blue-700;
-}
-
-.button-secondary {
-  @apply button-base bg-gray-200 text-gray-900 hover:bg-gray-300 focus:ring-gray-500 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600;
-}
-
-.button-danger {
-  @apply button-base bg-red-600 text-white hover:bg-red-700 focus:ring-red-500;
-}
-
-.text-truncate {
-  @apply truncate;
-}
-
-.transition-all {
-  transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Card Enhancement */
-.card-base {
-  @apply bg-white rounded-xl shadow-sm border border-gray-100 p-6 transition-all hover:shadow-lg dark:bg-gray-800 dark:border-gray-700;
-}
-
-.card-header {
-  @apply border-b border-gray-100 pb-4 mb-4 dark:border-gray-700;
-}
-
-/* Page Header */
-.page-header {
-  @apply mb-8;
-}
-
-.page-title {
-  @apply text-4xl font-bold text-gray-900 mb-2 dark:text-white;
-}
-
-.page-subtitle {
-  @apply text-gray-600 dark:text-gray-400;
+  .transition-all {
+    transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
 }
 
 /* Accessibility */
@@ -110,5 +136,83 @@ code {
 
 /* Focus visible state */
 *:focus-visible {
-  @apply outline-none ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-900;
+  @apply outline-none ring-2 ring-brick ring-offset-2;
+}
+@layer components {
+  /* Institutional Brand Utilities */
+  .brand-gradient-panel {
+    background: linear-gradient(
+      135deg,
+      var(--brand-brick) 0%,
+      var(--brand-brick-deep) 100%
+    );
+  }
+
+  .brand-text-gradient {
+    background: linear-gradient(
+      to right,
+      var(--brand-gold),
+      var(--brand-gold-deep)
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+}
+
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(184, 132, 111, 0.2);
+  border-radius: 9999px;
+  transition: background-color 0.3s ease;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(184, 132, 111, 0.4);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+.animate-fadeInUp {
+  animation: fadeInUp 0.5s ease-out forwards;
+}
+
+@layer components {
+  /* Institutional Transitions */
+  .institutional-transition {
+    transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
 }
