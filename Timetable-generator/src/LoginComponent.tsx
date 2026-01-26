@@ -9,29 +9,49 @@ import React, {
 } from "react";
 import { useAuth } from "./Authenticate";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import { Button } from "./components/common";
+import { Button } from "./components/atoms/Button";
 import IconBell from "./components/ui/IconBell";
 import { useTheme } from "./context/ThemeContext";
 import bellsLogo from "./assets/images/bells-logo.png";
 import { User } from "./types/institutional";
+import { FiEye, FiEyeOff, FiCheck, FiAlertCircle } from "react-icons/fi";
 
-interface College {
-  id: number;
-  name: string;
-  icon: string;
-  accent: string;
-}
+import { collegeService, College } from "./services/api/collegeService";
 
-// College Icons/Badges Data
-const COLLEGES: College[] = [
-  { id: 1, name: "Natural & Applied Sciences", icon: "🔬", accent: "#4a90e2" },
-  { id: 2, name: "Engineering", icon: "⚙️", accent: "#e94e77" },
-  { id: 3, name: "Food Technology", icon: "🌾", accent: "#50c878" },
-  { id: 4, name: "Management Sciences", icon: "📊", accent: "#f39c12" },
-  { id: 5, name: "Environmental Sciences", icon: "🏙️", accent: "#1252f3" },
+const MOCK_COLLEGES = [
+  {
+    id: "m1",
+    name: "Natural & Applied Sciences",
+    icon: "🔬",
+    accent: "#4a90e2",
+  },
+  { id: "m2", name: "Engineering", accent: "#e94e77" },
+  { id: "m3", name: "Food Technology", accent: "#50c878" },
+  { id: "m4", name: "Management Sciences", accent: "#f39c12" },
+  { id: "m5", name: "Environmental Sciences", accent: "#1252f3" },
 ];
+
+// Helper for visual assets (colors) matching DB names
+const GET_COLLEGE_ASSETS = (name: string) => {
+  const assets: Record<string, { accent: string }> = {
+    "Natural & Applied Sciences": { accent: "#4a90e2" },
+    Engineering: { accent: "#e94e77" },
+    "Food Technology": { accent: "#50c878" },
+    "Management Sciences": { accent: "#f39c12" },
+    "Environmental Sciences": { accent: "#1252f3" },
+    "College of Natural & Applied Sciences": { accent: "#4a90e2" },
+    "College of Engineering": { accent: "#e94e77" },
+    "College of Food Technology": { accent: "#50c878" },
+    "College of Management Sciences": { accent: "#f39c12" },
+    "College of Environmental Sciences": { accent: "#1252f3" },
+  };
+
+  const normalized = name.replace("College of ", "");
+  return assets[name] || assets[normalized] || { accent: "#666666" };
+};
 
 interface StrengthLevel {
   strength: number;
@@ -96,29 +116,49 @@ function LoginInput({
   autoComplete,
   isValid,
   showPasswordToggle,
-  onTogglePassword,
-  showPasswordVisible,
-  autoFocus,
   onKeyDown,
   disabled,
+  autoFocus,
 }: LoginInputProps) {
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+
+  // Handle password toggle internally if showing toggle
+  const actualType = showPasswordToggle
+    ? isPasswordVisible
+      ? "text"
+      : "password"
+    : type;
+
   return (
-    <div className="login-input-group">
-      <label htmlFor={id} className="login-input-label">
+    <div className="space-y-1.5">
+      <label
+        htmlFor={id}
+        className="block text-sm font-bold text-institutional-primary"
+      >
         {label}
-        {required && <span className="login-required">*</span>}
+        {required && <span className="text-status-error ml-1">*</span>}
       </label>
-      <div className="login-input-wrapper">
-        {Icon && <Icon className="login-input-icon" />}
+      <div className="relative group">
+        {Icon && (
+          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-brick/40 group-focus-within:text-brick transition-colors pointer-events-none">
+            <Icon />
+          </div>
+        )}
         <input
           id={id}
-          type={type}
+          type={actualType}
           placeholder={placeholder}
           value={value}
           onChange={onChange}
-          className={`login-input-field ${error ? "login-input-error" : ""} ${
-            isValid && value ? "login-input-valid" : ""
-          }`}
+          className={`
+            w-full bg-page border border-brick/10 outline-none rounded-institutional py-3.5 px-4 text-sm font-medium text-institutional-primary transition-all
+            focus:ring-2 focus:ring-brick/20 focus:border-brick/30 focus:bg-surface
+            placeholder:text-institutional-muted placeholder:opacity-50
+            disabled:opacity-50 disabled:cursor-not-allowed
+            ${Icon ? "pl-12" : ""}
+            ${error ? "border-status-error/50 focus:ring-status-error/20 bg-status-error/5" : ""}
+            ${isValid && value && !error ? "border-status-success/50 focus:ring-status-success/20" : ""}
+          `}
           required={required}
           autoComplete={autoComplete}
           aria-describedby={error ? `${id}-error` : undefined}
@@ -126,24 +166,31 @@ function LoginInput({
           onKeyDown={onKeyDown}
           disabled={disabled}
         />
+
         {isValid && value && !error && (
-          <span className="login-input-checkmark">✓</span>
+          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-status-success pointer-events-none">
+            <FiCheck />
+          </span>
         )}
+
         {showPasswordToggle && (
           <button
             type="button"
-            className="login-password-toggle"
-            onClick={onTogglePassword}
-            aria-label={showPasswordVisible ? "Hide password" : "Show password"}
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-brick transition-colors focus:outline-none"
+            onClick={() => setIsPasswordVisible(!isPasswordVisible)}
+            aria-label={isPasswordVisible ? "Hide password" : "Show password"}
             tabIndex={-1}
           >
-            {showPasswordVisible ? "👁️" : "👁️‍🗨️"}
+            {isPasswordVisible ? <FiEyeOff size={18} /> : <FiEye size={18} />}
           </button>
         )}
       </div>
       {error && (
-        <p id={`${id}-error`} className="login-error-message">
-          {error}
+        <p
+          id={`${id}-error`}
+          className="text-xs font-bold text-status-error mt-1 flex items-center gap-1"
+        >
+          <FiAlertCircle className="shrink-0" /> {error}
         </p>
       )}
     </div>
@@ -151,60 +198,86 @@ function LoginInput({
 }
 
 // Left Panel - Branding with Tech Pattern
-function BrandingPanel() {
+function BrandingPanel({ colleges }: { colleges: College[] }) {
   return (
-    <div className="login-branding-panel">
-      {/* Watermark Logo */}
-      <div className="login-watermark" aria-hidden="true">
-        <img src={bellsLogo} alt="" />
+    <div className="hidden lg:flex w-[50%] bg-brick dark:bg-[#1a1f26] relative overflow-hidden flex-col justify-between p-8 text-white transition-colors duration-500 shadow-inner">
+      {/* Subtle Gradient Overlays */}
+      <div className="absolute inset-0 bg-gradient-to-br from-brick-deep/40 via-transparent to-transparent z-[1]" />
+
+      {/* Watermark Logo - Optimal Visibility */}
+      <div className="absolute inset-0 z-0 opacity-[0.15] pointer-events-none flex items-center justify-center overflow-hidden">
+        <img
+          src={bellsLogo}
+          alt=""
+          className="w-[140%] max-w-none grayscale opacity-60 mix-blend-overlay rotate-[-10deg]"
+        />
       </div>
 
-      <div className="login-branding-content">
-        <div className="login-brand-info">
-          <div className="login-brand-label">Bells University</div>
-          <h1 className="login-brand-title">Timetable Generator</h1>
-          <p className="login-brand-tagline">
+      <div className="relative z-10 pt-2">
+        <div className="mb-4">
+          <div className="text-xs font-bold uppercase tracking-widest text-gold mb-1">
+            Bells University
+          </div>
+          <h1 className="text-4xl font-black tracking-tighter mb-2 leading-tight">
+            Timetable Generator
+          </h1>
+          <p className="text-white/80 font-medium text-base max-w-sm">
             Institutional scheduling made dependable.
           </p>
         </div>
 
-        <div className="login-brand-features">
-          <div className="feature-item">
-            <span className="feature-icon">✓</span>
+        <div className="space-y-1.5 font-medium text-sm mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-4 h-4 rounded-full bg-gold/20 flex items-center justify-center text-gold text-[8px] font-bold flex-shrink-0">
+              ✓
+            </div>
             <span>Intelligent Scheduling</span>
           </div>
-          <div className="feature-item">
-            <span className="feature-icon">✓</span>
+          <div className="flex items-center gap-3">
+            <div className="w-4 h-4 rounded-full bg-gold/20 flex items-center justify-center text-gold text-[8px] font-bold flex-shrink-0">
+              ✓
+            </div>
             <span>Conflict Resolution</span>
           </div>
-          <div className="feature-item">
-            <span className="feature-icon">✓</span>
+          <div className="flex items-center gap-3">
+            <div className="w-4 h-4 rounded-full bg-gold/20 flex items-center justify-center text-gold text-[8px] font-bold flex-shrink-0">
+              ✓
+            </div>
             <span>Real-time Management</span>
           </div>
         </div>
 
         {/* College Representation Badges */}
-        <div className="login-colleges-section">
-          <p className="colleges-label">Serving Colleges:</p>
-          <div className="colleges-grid">
-            {COLLEGES.map((college) => (
-              <div
-                key={college.id}
-                className="college-badge"
-                title={college.name}
-                style={
-                  { "--college-accent": college.accent } as React.CSSProperties
-                }
-              >
-                <span className="college-name-display">{college.name}</span>
-              </div>
-            ))}
+        <div className="space-y-1.5">
+          <p className="text-[9px] uppercase tracking-[0.2em] font-bold text-white/40 mb-0.5">
+            Serving Colleges:
+          </p>
+          <div className="grid grid-cols-1 gap-1">
+            {(colleges.length > 0 ? colleges : MOCK_COLLEGES)
+              .slice(0, 5)
+              .map((college: any) => {
+                const { accent } = GET_COLLEGE_ASSETS(college.name);
+                return (
+                  <div
+                    key={college.id}
+                    className="group relative flex items-center gap-3 px-3 py-2 bg-white/[0.02] hover:bg-white/[0.06] border border-white/5 rounded-institutional backdrop-blur-md transition-all cursor-default overflow-hidden"
+                  >
+                    <div
+                      className="absolute left-0 top-0 bottom-0 w-1 opacity-60"
+                      style={{ backgroundColor: college.accent || accent }}
+                    />
+                    <span className="text-[12px] font-bold opacity-70 group-hover:opacity-100 transition-opacity">
+                      {college.name}
+                    </span>
+                  </div>
+                );
+              })}
           </div>
         </div>
       </div>
 
-      <div className="login-brand-footer">
-        <p className="login-brand-copyright">
+      <div className="relative z-10 pt-4">
+        <p className="text-[10px] text-white/30 font-medium uppercase tracking-widest">
           © 2026 Bells University. All rights reserved.
         </p>
       </div>
@@ -232,7 +305,6 @@ function AuthCard({
 }: AuthCardProps) {
   const { theme, toggle } = useTheme();
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [showPassword, setShowPassword] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState<StrengthLevel>({
     strength: 0,
     label: "",
@@ -314,16 +386,18 @@ function AuthCard({
   };
 
   return (
-    <div className="login-form-panel">
-      <div className="login-form-header">
-        <div className="login-form-title-section">
-          <h2 className="login-form-title">Welcome Back</h2>
-          <p className="login-form-subtitle">
-            Sign in to your account to continue
+    <div className="flex-1 flex flex-col justify-center p-8 md:p-10 bg-surface relative animate-fadeIn overflow-hidden h-full">
+      <div className="flex justify-between items-start mb-6 max-w-md mx-auto w-full">
+        <div className="space-y-0.5">
+          <h2 className="text-2xl font-black text-institutional-primary tracking-tight">
+            Welcome Back
+          </h2>
+          <p className="text-institutional-secondary text-xs font-semibold opacity-60">
+            Sign in to your account
           </p>
         </div>
         <button
-          className={`login-theme-toggle ${bellRinging ? "bell-ringing" : ""}`}
+          className={`p-2 rounded-full bg-page hover:bg-brick/10 text-institutional-muted hover:text-brick transition-all absolute top-6 right-6 z-20 ${bellRinging ? "animate-pulse" : ""}`}
           onClick={handleThemeToggle}
           aria-label="Toggle theme"
           title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
@@ -333,7 +407,10 @@ function AuthCard({
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="login-form">
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-6 max-w-md mx-auto w-full"
+      >
         <LoginInput
           id="login-username"
           label="Username"
@@ -354,7 +431,7 @@ function AuthCard({
           <LoginInput
             id="login-password"
             label="Password"
-            type={showPassword ? "text" : "password"}
+            type="password"
             placeholder="Enter your password"
             value={password}
             onChange={handlePasswordChange}
@@ -362,8 +439,6 @@ function AuthCard({
             required
             autoComplete="current-password"
             showPasswordToggle={true}
-            onTogglePassword={() => setShowPassword(!showPassword)}
-            showPasswordVisible={showPassword}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 handleSubmit(e);
@@ -372,12 +447,11 @@ function AuthCard({
             disabled={isLoading}
           />
 
-          {/* Password Strength Indicator */}
           {password && !errors.password && (
-            <div className="password-strength-container">
-              <div className="password-strength-bar">
+            <div className="mt-2 text-institutional-primary">
+              <div className="h-1 w-full bg-brick/10 rounded-full overflow-hidden mb-1">
                 <div
-                  className="password-strength-fill"
+                  className="h-full transition-all duration-300"
                   style={{
                     width: `${(passwordStrength.strength / 5) * 100}%`,
                     backgroundColor: passwordStrength.color,
@@ -385,7 +459,7 @@ function AuthCard({
                 />
               </div>
               <p
-                className="password-strength-label"
+                className="text-[10px] font-bold uppercase tracking-wider text-right"
                 style={{ color: passwordStrength.color }}
               >
                 {passwordStrength.label}
@@ -394,16 +468,22 @@ function AuthCard({
           )}
         </div>
 
-        <div className="login-form-actions">
-          <label className="login-remember">
+        <div className="flex items-center justify-between pt-2">
+          <label className="flex items-center gap-2 cursor-pointer group select-none">
             <input
               type="checkbox"
+              className="w-4 h-4 rounded border-brick/20 text-brick focus:ring-brick/20 cursor-pointer bg-page"
               aria-label="Remember me"
               disabled={isLoading}
             />
-            <span>Remember me</span>
+            <span className="text-sm text-institutional-secondary group-hover:text-institutional-primary transition-colors font-medium">
+              Remember me
+            </span>
           </label>
-          <a href="#forgot" className="login-forgot-link">
+          <a
+            href="#forgot"
+            className="text-sm font-bold text-gold-deep hover:underline underline-offset-4"
+          >
             Forgot password?
           </a>
         </div>
@@ -412,11 +492,11 @@ function AuthCard({
           variant="brand"
           type="submit"
           disabled={isLoading}
-          className={`login-submit-button ${isLoading ? "loading" : ""}`}
+          className="w-full py-4 text-sm font-bold bg-gold hover:bg-gold-deep text-brick-deep shadow-none hover:shadow-lg transition-all rounded-institutional flex items-center justify-center gap-2 uppercase tracking-wide"
         >
           {isLoading ? (
             <>
-              <span className="button-spinner"></span>
+              <span className="w-4 h-4 border-2 border-brick-deep border-t-transparent rounded-full animate-spin" />
               <span>Signing in...</span>
             </>
           ) : (
@@ -425,16 +505,21 @@ function AuthCard({
         </Button>
       </form>
 
-      <div className="login-form-divider">
-        <span>Need help?</span>
+      <div className="relative py-4 max-w-md mx-auto w-full text-center">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-brick/10"></div>
+        </div>
+        <span className="relative bg-surface px-4 text-[10px] uppercase tracking-widest text-institutional-muted font-bold">
+          Need help?
+        </span>
       </div>
 
-      <div className="login-support-info">
-        <p className="login-support-text">
-          Contact the IT Support Team at{" "}
+      <div className="max-w-md mx-auto w-full text-center">
+        <p className="text-[10px] text-institutional-secondary font-medium">
+          IT Support:{" "}
           <a
             href="mailto:support@bellsuniversity.edu"
-            className="login-support-link"
+            className="text-gold-deep font-bold hover:underline"
           >
             support@bellsuniversity.edu
           </a>
@@ -448,20 +533,27 @@ export default function Login() {
   const { login } = useAuth();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingSubmit, setIsLoadingSubmit] = useState(false);
   const navigate = useNavigate();
+
+  const { data: colleges = [] } = useQuery({
+    queryKey: ["colleges"],
+    queryFn: collegeService.getAll,
+    staleTime: 1000 * 60 * 30, // Colleges change infrequently, 30m cache
+  });
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
+    setIsLoadingSubmit(true);
 
     try {
-      const mockUser: User = {
-        id: "1",
-        username: username || "staff_portal",
-        role: "ADMIN",
+      const userCredentials: User = {
+        id: "",
+        username: username,
+        password: password,
+        role: "ADMIN", // Default prior to auth response
       };
-      await login(mockUser);
+      await login(userCredentials);
       toast.success("Login successful!");
       setTimeout(() => {
         navigate("/dashboard");
@@ -469,20 +561,20 @@ export default function Login() {
     } catch (err: any) {
       console.error("Login error:", err);
       toast.error(err.message || "Invalid username or password");
-      setIsLoading(false);
+      setIsLoadingSubmit(false);
     }
   };
 
   return (
-    <div className="login-container">
-      <BrandingPanel />
+    <div className="flex h-screen bg-page overflow-hidden">
+      <BrandingPanel colleges={colleges} />
       <AuthCard
         onSubmit={handleSubmit}
         username={username}
         setUsername={setUsername}
         password={password}
         setPassword={setPassword}
-        isLoading={isLoading}
+        isLoading={isLoadingSubmit}
       />
       <ToastContainer position="top-right" autoClose={3000} />
     </div>

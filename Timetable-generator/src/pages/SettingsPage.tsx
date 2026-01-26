@@ -9,6 +9,10 @@ import {
   FiLock,
   FiCheckCircle,
   FiChevronRight,
+  FiActivity,
+  FiWifi,
+  FiRefreshCw,
+  FiZap,
 } from "react-icons/fi";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -28,6 +32,7 @@ const TABS = [
   { id: "examination", label: "Examination Settings", icon: "📝" },
   { id: "output", label: "Output Settings", icon: "🖨️" },
   { id: "optimization", label: "Optimization Settings", icon: "⚙️" },
+  { id: "health", label: "Health & Integrity", icon: "🏥" },
 ] as const;
 
 const CONSTRAINT_LIST = [
@@ -140,6 +145,85 @@ const SettingsPage: React.FC = () => {
   const [displayProg, setDisplayProg] = useState(false);
   const [optTime, setOptTime] = useState("");
   const [optCount, setOptCount] = useState("");
+
+  // Health & Heartbeat State
+  const [healthData, setHealthData] = useState<Record<string, any>>({});
+  const [checkingHealth, setCheckingHealth] = useState(false);
+
+  const fetchHealth = async () => {
+    setCheckingHealth(true);
+    const endpoints = [
+      {
+        id: "staff",
+        url: "http://localhost:8080/staff/get",
+        name: "Personnel Ledger",
+      },
+      {
+        id: "student",
+        url: "http://localhost:8080/student/get",
+        name: "Student Registry",
+      },
+      {
+        id: "course",
+        url: "http://localhost:8080/course/get",
+        name: "Curriculum Assets",
+      },
+      {
+        id: "venue",
+        url: "http://localhost:8080/venue/get",
+        name: "Infrastructure Portfolio",
+      },
+    ];
+
+    const results: Record<string, any> = {};
+    const username = localStorage.getItem("username") || "admin";
+
+    for (const ep of endpoints) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+
+      try {
+        const url =
+          ep.id === "venue"
+            ? ep.url
+            : `${ep.url}?username=${encodeURIComponent(username)}`;
+        const res = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        if (!res.ok) {
+          results[ep.id] = {
+            status: `Error ${res.status}`,
+            ok: false,
+            name: ep.name,
+            count: 0,
+            err: `Server returned code ${res.status}`,
+          };
+          continue;
+        }
+
+        const data = await res.json();
+        results[ep.id] = {
+          status: "Connected",
+          ok: true,
+          name: ep.name,
+          count: Array.isArray(data) ? data.length : 0,
+        };
+      } catch (e: any) {
+        console.error(`Health check failed for ${ep.id}`, e);
+        const isTimeout = e.name === "AbortError";
+        results[ep.id] = {
+          status: isTimeout ? "Timeout" : "Offline",
+          ok: false,
+          name: ep.name,
+          count: 0,
+          err: e.message,
+        };
+      }
+    }
+    setHealthData(results);
+    setCheckingHealth(false);
+    toast.info("Institutional health audit complete");
+  };
 
   const handleConstraintCheckbox = (key: string) => {
     setConstraints((prev) => ({
@@ -280,18 +364,20 @@ const SettingsPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-12 animate-fadeIn">
+    <div className="space-y-4 animate-fadeIn">
       {/* Header Section */}
-      <div className="border-b border-brick/10 pb-8">
-        <h1 className="text-3xl font-extrabold text-institutional-primary tracking-tight mb-2">
-          System Calibration
-        </h1>
-        <p className="text-institutional-secondary font-medium italic opacity-80">
-          Configuration Core • Institutional Parameter Orchestration
-        </p>
+      <div className="sticky top-0 z-40 bg-page/95 backdrop-blur-sm border-b border-brick/10 pb-2 flex justify-between transition-all">
+        <div className="flex flex-col">
+          <h1 className="text-2xl font-black text-institutional-primary tracking-tight">
+            System Calibration
+          </h1>
+          <p className="text-[10px] text-institutional-secondary font-medium italic opacity-70">
+            Configuration Core • Institutional Parameter Orchestration
+          </p>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
         {/* Navigation Column */}
         <div className="lg:col-span-1 space-y-2">
           {TABS.map((tab) => (
@@ -317,28 +403,28 @@ const SettingsPage: React.FC = () => {
         </div>
 
         {/* Dynamic Content Column */}
-        <div className="lg:col-span-3 min-h-[500px]">
+        <div className="lg:col-span-3 min-h-[400px]">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
               initial={{ opacity: 0, x: 10 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -10 }}
-              className="bg-surface p-8 rounded-institutional border border-brick/10 shadow-sm"
+              className="bg-surface p-6 rounded-institutional border border-brick/10 shadow-sm"
             >
               {activeTab === "constraint" && (
-                <div className="space-y-8">
-                  <div className="flex items-center gap-3 border-b border-brick/5 pb-4">
-                    <FiLock className="text-brick text-xl" />
-                    <h2 className="text-sm font-black uppercase tracking-widest text-brick">
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3 border-b border-brick/5 pb-3">
+                    <FiLock className="text-brick text-lg" />
+                    <h2 className="text-xs font-black uppercase tracking-widest text-brick">
                       Institutional Constraints
                     </h2>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {CONSTRAINT_LIST.map((item) => (
                       <div
                         key={item.key}
-                        className="p-5 bg-page/50 border border-brick/5 rounded hover:border-brick/20 transition-all flex flex-col"
+                        className="p-4 bg-page/50 border border-brick/5 rounded hover:border-brick/20 transition-all flex flex-col"
                       >
                         <label className="flex items-center gap-3 cursor-pointer group mb-4">
                           <input
@@ -357,7 +443,7 @@ const SettingsPage: React.FC = () => {
                           </div>
                         </label>
                         {constraints[item.key]?.checked && (
-                          <div className="space-y-3 mt-4 animate-fadeIn">
+                          <div className="space-y-2 mt-2 animate-fadeIn">
                             {constraints[item.key].values.map((val, idx) => (
                               <input
                                 key={idx}
@@ -389,10 +475,10 @@ const SettingsPage: React.FC = () => {
               )}
 
               {activeTab === "examination" && (
-                <div className="space-y-8">
-                  <div className="flex items-center gap-3 border-b border-brick/5 pb-4">
-                    <FiCheckCircle className="text-brick text-xl" />
-                    <h2 className="text-sm font-black uppercase tracking-widest text-brick">
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3 border-b border-brick/5 pb-3">
+                    <FiCheckCircle className="text-brick text-lg" />
+                    <h2 className="text-xs font-black uppercase tracking-widest text-brick">
                       Academic Boundaries
                     </h2>
                   </div>
@@ -435,14 +521,14 @@ const SettingsPage: React.FC = () => {
               )}
 
               {activeTab === "output" && (
-                <div className="space-y-8">
-                  <div className="flex items-center gap-3 border-b border-brick/5 pb-4">
-                    <FiDownload className="text-brick text-xl" />
-                    <h2 className="text-sm font-black uppercase tracking-widest text-brick">
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3 border-b border-brick/5 pb-3">
+                    <FiDownload className="text-brick text-lg" />
+                    <h2 className="text-xs font-black uppercase tracking-widest text-brick">
                       Output Projections
                     </h2>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {[
                       {
                         label: "Deterministic Venue Mixing",
@@ -467,7 +553,7 @@ const SettingsPage: React.FC = () => {
                     ].map((opt, i) => (
                       <label
                         key={i}
-                        className="flex items-center justify-between p-4 bg-page/50 rounded border border-brick/5 cursor-pointer hover:border-brick/10"
+                        className="flex items-center justify-between p-3 bg-page/50 rounded border border-brick/5 cursor-pointer hover:border-brick/10"
                       >
                         <span className="text-xs font-bold text-institutional-primary">
                           {opt.label}
@@ -485,18 +571,18 @@ const SettingsPage: React.FC = () => {
               )}
 
               {activeTab === "optimization" && (
-                <div className="space-y-8">
-                  <div className="flex items-center gap-3 border-b border-brick/5 pb-4">
-                    <FiSettings className="text-brick text-xl" />
-                    <h2 className="text-sm font-black uppercase tracking-widest text-brick">
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3 border-b border-brick/5 pb-3">
+                    <FiSettings className="text-brick text-lg" />
+                    <h2 className="text-xs font-black uppercase tracking-widest text-brick">
                       Mathematical Orchestration
                     </h2>
                   </div>
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {OPTIMIZATION_OPTS.map((algo) => (
                       <div
                         key={algo.key}
-                        className="p-6 bg-page/50 rounded border border-brick/10"
+                        className="p-5 bg-page/50 rounded border border-brick/10"
                       >
                         <label className="flex items-center gap-4 cursor-pointer">
                           <input
@@ -516,6 +602,160 @@ const SettingsPage: React.FC = () => {
                         </label>
                       </div>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === "health" && (
+                <div className="space-y-6 animate-fadeIn">
+                  <div className="flex items-center justify-between border-b border-brick/5 pb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-brick/5 rounded-full flex items-center justify-center">
+                        <FiActivity className="text-brick" size={14} />
+                      </div>
+                      <div>
+                        <h2 className="text-xs font-black uppercase tracking-widest text-brick">
+                          System Connectivity & Health
+                        </h2>
+                        <p className="text-[9px] text-institutional-muted font-bold tracking-tight">
+                          Real-time heartbeat monitor for academic services
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={fetchHealth}
+                      disabled={checkingHealth}
+                      className={`flex items-center gap-2 px-5 py-2.5 rounded-institutional border text-[10px] font-black uppercase tracking-widest transition-all ${
+                        checkingHealth
+                          ? "bg-brick/5 text-brick opacity-50 cursor-not-allowed"
+                          : "bg-brick text-white hover:bg-brick-deep shadow-lg shadow-brick/20"
+                      }`}
+                    >
+                      <FiRefreshCw
+                        className={checkingHealth ? "animate-spin" : ""}
+                      />
+                      {checkingHealth ? "Auditing..." : "Execute Pulse Check"}
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    {/* Endpoint Status */}
+                    <div className="space-y-3">
+                      <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-institutional-muted pl-1">
+                        Service Heartbeats
+                      </h3>
+                      <div className="space-y-2">
+                        {Object.entries(healthData).map(
+                          ([id, data]: [string, any]) => (
+                            <div
+                              key={id}
+                              className="flex items-center justify-between p-3 bg-page/50 border border-brick/5 rounded-institutional group hover:border-brick/20 transition-all"
+                            >
+                              <div className="flex items-center gap-4">
+                                <div
+                                  className={`p-2 rounded-full ${data.ok ? "bg-status-success/10 text-status-success" : "bg-status-error/10 text-status-error"}`}
+                                >
+                                  <FiWifi size={14} />
+                                </div>
+                                <div>
+                                  <p className="text-xs font-bold text-institutional-primary">
+                                    {data.name}
+                                  </p>
+                                  <p className="text-[9px] text-institutional-muted uppercase font-black">
+                                    {id} endpoint
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex flex-col items-end">
+                                <span
+                                  className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase ${data.ok ? "bg-status-success text-white" : "bg-status-error text-white"}`}
+                                >
+                                  {data.status}
+                                </span>
+                              </div>
+                            </div>
+                          ),
+                        )}
+                        {Object.keys(healthData).length === 0 && (
+                          <div className="py-12 text-center border-2 border-dashed border-brick/5 rounded-institutional opacity-40 italic text-xs">
+                            Execute pulse check to verify connectivity.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Registry Insights */}
+                    <div className="space-y-3">
+                      <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-institutional-muted pl-1">
+                        Registry Population
+                      </h3>
+                      <div className="bg-brick/5 p-5 rounded-institutional border border-brick/10 relative overflow-hidden">
+                        <FiDatabase className="absolute -right-4 -bottom-4 text-brick/10 w-20 h-20 rotate-12" />
+                        <div className="grid grid-cols-2 gap-3 relative z-10">
+                          {Object.entries(healthData).map(
+                            ([id, data]: [string, any]) => (
+                              <div
+                                key={id}
+                                className={`p-4 rounded border shadow-sm transition-all ${data.count > 0 ? "bg-transparent border-brick/10" : "bg-status-warning/5 border-status-warning/20"}`}
+                              >
+                                <div className="flex justify-between items-start mb-2">
+                                  <p className="text-[9px] font-black uppercase text-brick/60">
+                                    {data.name || id}
+                                  </p>
+                                  {data.ok ? (
+                                    data.count === 0 && (
+                                      <span className="text-[8px] font-bold px-1.5 py-0.5 bg-status-warning/20 text-status-warning rounded uppercase">
+                                        Empty
+                                      </span>
+                                    )
+                                  ) : (
+                                    <span className="text-[8px] font-bold px-1.5 py-0.5 bg-status-error/10 text-status-error rounded uppercase">
+                                      {data.status}
+                                    </span>
+                                  )}
+                                </div>
+                                <p
+                                  className={`text-2xl font-black leading-none ${data.ok && data.count > 0 ? "text-institutional-primary" : "text-institutional-muted"}`}
+                                >
+                                  {data.count ?? 0}
+                                </p>
+                                <div className="flex flex-col mt-1">
+                                  <p className="text-[8px] font-bold text-institutional-muted uppercase">
+                                    {data.ok
+                                      ? "Records Verified"
+                                      : "Sync Failure"}
+                                  </p>
+                                  {data.err && (
+                                    <p className="text-[7px] font-medium text-status-error/60 leading-none truncate max-w-full">
+                                      {data.err}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            ),
+                          )}
+                        </div>
+                        {Object.keys(healthData).length === 0 && (
+                          <div className="text-center py-6 opacity-30 text-xs font-bold italic">
+                            Awaiting registry data...
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="mt-4 p-3 bg-gold/5 border border-gold/20 rounded-institutional">
+                        <div className="flex items-center gap-3 mb-2">
+                          <FiZap className="text-gold-deep" />
+                          <p className="text-[10px] font-black uppercase tracking-widest text-brick-deep">
+                            Institutional Readiness
+                          </p>
+                        </div>
+                        <p className="text-[10px] font-bold text-institutional-secondary leading-relaxed opacity-80">
+                          System requires at least 1 record in each core
+                          registry (Staff, Courses, Venues) to perform
+                          intelligent orchestration.
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}

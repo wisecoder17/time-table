@@ -21,18 +21,15 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       <div className="flex flex-1 relative pt-16">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-        <main
-          className="flex-1 overflow-y-auto overflow-x-hidden min-h-[calc(100vh-64px)] md:ml-72"
-          role="main"
-        >
-          <div className="max-w-[1600px] mx-auto px-6 py-8 animate-fadeIn">
+        <main className="flex-1 md:ml-72" role="main">
+          <div className="max-w-[1600px] mx-auto px-6 pb-12 pt-0">
             {children}
           </div>
         </main>
       </div>
 
       {/* Institutional Footer (Subtle) */}
-      <footer className="py-6 px-8 border-t border-brick/10 bg-white/50 backdrop-blur-sm md:ml-72">
+      <footer className="py-6 px-8 border-t border-brick/10 bg-surface/50 backdrop-blur-sm md:ml-72">
         <div className="max-w-[1600px] mx-auto flex flex-col md:flex-row justify-between items-center gap-4 text-institutional-muted text-xs font-medium">
           <p>
             © 2026 Bells University of Technology. All Academic Rights Reserved.

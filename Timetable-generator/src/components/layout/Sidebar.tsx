@@ -10,6 +10,7 @@ import {
   FiSettings,
   FiTrello,
 } from "react-icons/fi";
+import { useAuth } from "../../Authenticate";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -21,6 +22,7 @@ interface SidebarProps {
  * Features: High-contrast markers, premium typography, and disciplined navigation categories.
  */
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
+  const { user } = useAuth();
   const location = useLocation();
 
   const primaryNavigation = [
@@ -116,7 +118,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 <div className="flex items-center gap-2 mb-2">
                   <FiTrello className="text-brick" size={14} />
                   <span className="text-[9px] font-black uppercase tracking-widest text-brick">
-                    Bells Registry
+                    {user?.department?.name || "Bells Registry"}
                   </span>
                 </div>
                 <div className="space-y-1 opacity-80">

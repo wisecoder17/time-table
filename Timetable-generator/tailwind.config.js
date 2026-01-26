@@ -19,6 +19,7 @@ module.exports = {
         "status-error": "#a84444",
         surface: "var(--bg-card)",
         page: "var(--bg-main)",
+        "bg-input": "var(--bg-input)",
         "institutional-primary": "var(--text-primary)",
         "institutional-secondary": "var(--text-secondary)",
         "institutional-muted": "var(--text-muted)",

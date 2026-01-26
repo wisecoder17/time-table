@@ -12,6 +12,8 @@ import StaffPage from "./pages/StaffPage";
 import VenuesPage from "./pages/VenuesPage";
 import TimetablePage from "./pages/TimetablePage";
 import SettingsPage from "./pages/SettingsPage";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 // Components
 import MainLayout from "./components/layout/MainLayout";
@@ -31,8 +33,7 @@ const queryClient = new QueryClient({
  * Protected route wrapper
  */
 function ProtectedRoute({ element }: { element: React.ReactNode }) {
-  // const { token } = useAuth();
-  let token = 1;
+  const { token } = useAuth();
   return token ? element : <Navigate to="/login" />;
 }
 
@@ -40,12 +41,23 @@ function ProtectedRoute({ element }: { element: React.ReactNode }) {
  * Main App component with routing and providers
  */
 export default function App() {
-  // const { token } = useAuth();
-  let token = 1;
+  const { token } = useAuth();
 
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
+        <ToastContainer
+          position="top-right"
+          autoClose={3000}
+          hideProgressBar={false}
+          newestOnTop={false}
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="colored"
+        />
         <Routes>
           {/* Public Routes */}
           <Route

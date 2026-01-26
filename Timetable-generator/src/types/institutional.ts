@@ -25,8 +25,12 @@ export interface User {
   username: string;
   role: "ADMIN" | "LECTURER" | "STUDENT";
   departmentId?: string;
+  department?: {
+    name: string;
+  };
   name?: string;
   email?: string;
+  password?: string;
 }
 
 export interface Student {

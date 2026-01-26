@@ -1,6 +1,6 @@
 import React, { useEffect, useState, ChangeEvent } from "react";
 import { toast } from "react-toastify";
-import { FiEdit2, FiTrash2, FiSave, FiXCircle } from "react-icons/fi";
+import { FiEdit2, FiTrash2, FiSave, FiXCircle, FiSearch } from "react-icons/fi";
 
 interface Student {
   id: string;
@@ -28,6 +28,7 @@ export default function StudentList({ onStudentList }: StudentListProps) {
   const [students, setStudents] = useState<Student[]>([]);
   const [editId, setEditId] = useState<string | null>(null);
   const [editData, setEditData] = useState<Partial<Student>>({});
+  const [searchQuery, setSearchQuery] = useState("");
 
   const fetchStudents = async () => {
     const username = localStorage.getItem("username");
@@ -49,6 +50,25 @@ export default function StudentList({ onStudentList }: StudentListProps) {
   useEffect(() => {
     fetchStudents();
   }, []);
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8; // Institutional standard for ledger view
+
+  const filteredStudents = students.filter((student) => {
+    const searchStr = searchQuery.toLowerCase();
+    return (
+      student.matric_No?.toLowerCase().includes(searchStr) ||
+      student.surname?.toLowerCase().includes(searchStr) ||
+      student.firstname?.toLowerCase().includes(searchStr) ||
+      student.programme?.toLowerCase().includes(searchStr)
+    );
+  });
+
+  const totalPages = Math.ceil(filteredStudents.length / itemsPerPage);
+  const paginatedStudents = filteredStudents.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage,
+  );
 
   const handleEditClick = (student: Student) => {
     setEditId(student.id);
@@ -102,6 +122,42 @@ export default function StudentList({ onStudentList }: StudentListProps) {
 
   return (
     <div className="institutional-table-container animate-fade-in">
+      <div className="p-4 border-b border-brick/10 bg-page/50 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+        <div className="flex flex-1 max-w-2xl gap-2">
+          <div className="relative flex-1 group">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-brick group-focus-within:scale-110 transition-transform">
+              <FiSearch size={16} />
+            </div>
+            <input
+              type="text"
+              placeholder="Search by Matric No, Name or Programme..."
+              className="w-full pl-10 pr-4 py-2.5 bg-surface border border-brick/10 rounded-institutional text-sm font-bold text-institutional-primary focus:outline-none focus:ring-2 focus:ring-brick/20 transition-all shadow-sm"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  // Live search already handles this, but Enter provides feedback
+                  toast.info(`Filtering for: ${searchQuery}`, {
+                    autoClose: 1000,
+                  });
+                }
+              }}
+            />
+          </div>
+          <button
+            className="px-6 py-2.5 bg-brick text-white rounded-institutional text-[10px] font-black uppercase tracking-widest shadow-md hover:bg-brick-deep transition-all flex items-center gap-2 shrink-0"
+            onClick={() =>
+              toast.info(`Registry filtered by: ${searchQuery || "Show All"}`)
+            }
+          >
+            <FiSearch size={14} /> Search
+          </button>
+        </div>
+        <div className="text-[10px] font-black uppercase text-institutional-muted tracking-widest bg-brick/5 px-3 py-2 rounded-full border border-brick/10 inline-flex items-center self-start md:self-center">
+          Registry Ledger: {filteredStudents.length} matches
+        </div>
+      </div>
+
       <table className="institutional-table">
         <thead>
           <tr>
@@ -114,7 +170,7 @@ export default function StudentList({ onStudentList }: StudentListProps) {
           </tr>
         </thead>
         <tbody className="divide-y divide-brick/5">
-          {students.map((student) => (
+          {paginatedStudents.map((student) => (
             <tr
               key={student.id}
               className="hover:bg-brick/5 transition-colors group"
@@ -237,9 +293,35 @@ export default function StudentList({ onStudentList }: StudentListProps) {
           ))}
         </tbody>
       </table>
-      {students.length === 0 && (
+
+      {totalPages > 1 && (
+        <div className="flex justify-between items-center px-4 py-4 border-t border-brick/10 bg-page/30">
+          <p className="text-[10px] uppercase font-bold text-institutional-muted tracking-widest">
+            Page {currentPage} of {totalPages}
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="px-4 py-2 bg-white border border-brick/10 rounded text-[10px] font-black uppercase disabled:opacity-50 hover:bg-brick/5 transition-all"
+            >
+              Previous
+            </button>
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="px-4 py-2 bg-white border border-brick/10 rounded text-[10px] font-black uppercase disabled:opacity-50 hover:bg-brick/5 transition-all"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
+      {filteredStudents.length === 0 && (
         <div className="py-20 text-center opacity-40 italic">
-          No institutional student records found in current ledger section.
+          {searchQuery
+            ? `No records found matching "${searchQuery}"`
+            : "No institutional student records found in current ledger section."}
         </div>
       )}
     </div>

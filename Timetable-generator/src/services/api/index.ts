@@ -5,3 +5,6 @@ export { courseService } from "./courseService";
 export { staffService } from "./staffService";
 export { venueService } from "./venueService";
 export { timetableService } from "./timetableService";
+export { collegeService } from "./collegeService";
+export { departmentService } from "./departmentService";
+export { programService } from "./programService";

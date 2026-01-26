@@ -1,10 +1,9 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../../hooks/useAuth";
+import { useAuth } from "../../Authenticate";
 import { useTheme } from "../../context/ThemeContext";
 import {
   FiMenu,
-  FiTrello,
   FiMoon,
   FiSun,
   FiUser,
@@ -12,6 +11,8 @@ import {
   FiLogOut,
 } from "react-icons/fi";
 import { motion, AnimatePresence } from "framer-motion";
+
+import bellsLogo from "../../assets/images/bells-logo.png";
 
 interface HeaderProps {
   onMenuToggle: () => void;
@@ -22,7 +23,7 @@ interface HeaderProps {
  * Features: Fixed position, Brick Brown gradient, stays on top.
  */
 const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const { theme, toggle: toggleTheme } = useTheme();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const navigate = useNavigate();
@@ -49,10 +50,14 @@ const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
           {/* Institutional Logo */}
           <Link
             to="/dashboard"
-            className="flex items-center gap-3 group transition-all"
+            className="flex items-center gap-4 group transition-all"
           >
-            <div className="w-10 h-10 bg-gold rounded-institutional flex items-center justify-center shadow-lg shadow-gold/30 group-hover:scale-110 transition-transform">
-              <FiTrello className="text-brick-deep" size={20} />
+            <div className="w-10 h-10 bg-white rounded-institutional flex items-center justify-center shadow-lg shadow-black/10 group-hover:rotate-6 transition-all duration-500 overflow-hidden p-1">
+              <img
+                src={bellsLogo}
+                alt="Bells University"
+                className="w-full h-full object-contain"
+              />
             </div>
             <div className="hidden md:block">
               <h1 className="text-sm font-black uppercase tracking-[0.2em] text-white leading-none">
@@ -96,7 +101,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
                 <FiUser className="text-brick-deep" size={14} />
               </div>
               <span className="hidden md:block text-xs font-bold text-white uppercase tracking-widest">
-                Admin
+                {user?.username || "Authorized User"}
               </span>
               <FiChevronDown
                 className={`text-white/60 transition-transform ${userMenuOpen ? "rotate-180" : ""}`}
@@ -114,10 +119,10 @@ const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
                 >
                   <div className="p-4 border-b border-brick/10 bg-brick/5">
                     <p className="text-xs font-black uppercase tracking-widest text-brick">
-                      Administrator
+                      {user?.role || "ACCESS LEVEL: ADMIN"}
                     </p>
-                    <p className="text-[10px] text-institutional-muted mt-1">
-                      admin@bellsuniversity.edu
+                    <p className="text-[10px] text-institutional-muted mt-1 uppercase">
+                      ID: {user?.username || "SYSTEM"}
                     </p>
                   </div>
                   <button

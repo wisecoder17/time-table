@@ -32,6 +32,7 @@ const TimetablePage: React.FC = () => {
   const [examStartDate, setExamStartDate] = useState("");
   const [examEndDate, setExamEndDate] = useState("");
   const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, boolean>>({});
 
   // Interactive Grid State
   const [gridInitialized, setGridInitialized] = useState(false);
@@ -50,10 +51,28 @@ const TimetablePage: React.FC = () => {
   };
 
   const initializeGrid = () => {
-    if (!examStartDate || !examEndDate || periodsPerDay < 1) {
-      toast.warn("Complete all academic framework fields to initialize grid");
+    const newErrors: Record<string, boolean> = {};
+    if (!examStartDate) newErrors.examStartDate = true;
+    if (!examEndDate) newErrors.examEndDate = true;
+    if (periodsPerDay < 1) newErrors.periodsPerDay = true;
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      toast.warn("Compliance Error: Missing mandatory academic parameters");
       return;
     }
+
+    const start = new Date(examStartDate);
+    const end = new Date(examEndDate);
+    if (end < start) {
+      setErrors({ examStartDate: true, examEndDate: true });
+      toast.error(
+        "Temporal Error: Commencement date cannot exceed Termination",
+      );
+      return;
+    }
+
+    setErrors({}); // Clear errors on success
 
     // Generate all possible period slots for the week
     const slots: PeriodSlot[] = [];
@@ -94,10 +113,39 @@ const TimetablePage: React.FC = () => {
   };
 
   const handleMainInterface = async () => {
-    if (!session.trim() || !semester.trim() || !examStartDate || !examEndDate) {
+    // 1. Mandatory Fields Check
+    const newErrors: Record<string, boolean> = {};
+    if (!session) newErrors.session = true;
+    if (!semester) newErrors.semester = true;
+    if (!examStartDate) newErrors.examStartDate = true;
+    if (!examEndDate) newErrors.examEndDate = true;
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       toast.warn("Verify all mandatory institutional academic fields");
       return;
     }
+
+    // 2. Session Format Validation (YYYY/YYYY)
+    const sessionRegex = /^\d{4}\/\d{4}$/;
+    if (!sessionRegex.test(session)) {
+      setErrors({ session: true });
+      toast.error("Format Error: Session must be YYYY/YYYY (e.g., 2024/2025)");
+      return;
+    }
+
+    // 3. Chronological Date Validation
+    const start = new Date(examStartDate);
+    const end = new Date(examEndDate);
+    if (end < start) {
+      setErrors({ examStartDate: true, examEndDate: true });
+      toast.error(
+        "Temporal Error: Termination date cannot precede Commencement",
+      );
+      return;
+    }
+
+    setErrors({});
 
     const selectedSlots = periodSlots.filter((slot) => slot.selected);
     if (selectedSlots.length === 0) {
@@ -130,9 +178,9 @@ const TimetablePage: React.FC = () => {
   const totalSlots = periodSlots.length;
 
   return (
-    <div className="space-y-12 animate-fadeIn">
+    <div className="space-y-8 animate-fadeIn">
       {/* Header Section */}
-      <div className="border-b border-brick/10 pb-8 flex justify-between items-end">
+      <div className="sticky top-0 z-40 bg-page/95 backdrop-blur-sm border-b border-brick/10 pb-4 flex justify-between items-end transition-all">
         <div>
           <h1 className="text-3xl font-extrabold text-institutional-primary tracking-tight mb-2">
             Schedule Orchestration
@@ -176,9 +224,17 @@ const TimetablePage: React.FC = () => {
                 <input
                   type="text"
                   placeholder="eg. 2024/2025"
-                  className="w-full bg-page border border-brick/10 px-4 py-3 rounded-institutional font-bold text-sm focus:ring-2 focus:ring-brick/20 outline-none transition-all"
+                  className={`w-full bg-page border px-4 py-3 rounded-institutional font-bold text-sm focus:ring-2 focus:ring-brick/20 outline-none transition-all ${
+                    errors.session
+                      ? "border-status-error ring-1 ring-status-error/20"
+                      : "border-brick/10"
+                  }`}
                   value={session}
-                  onChange={(e) => setSession(e.target.value)}
+                  onChange={(e) => {
+                    setSession(e.target.value);
+                    if (errors.session)
+                      setErrors((prev) => ({ ...prev, session: false }));
+                  }}
                 />
                 <AnimatePresence>
                   {activeTooltip === "session" && (
@@ -228,9 +284,17 @@ const TimetablePage: React.FC = () => {
                 </label>
                 <input
                   type="date"
-                  className="w-full bg-page border border-brick/10 px-3 py-2 rounded text-xs font-bold"
+                  className={`w-full bg-page border px-3 py-2 rounded text-xs font-bold ${
+                    errors.examStartDate
+                      ? "border-status-error ring-1 ring-status-error/20"
+                      : "border-brick/10"
+                  }`}
                   value={examStartDate}
-                  onChange={(e) => setExamStartDate(e.target.value)}
+                  onChange={(e) => {
+                    setExamStartDate(e.target.value);
+                    if (errors.examStartDate)
+                      setErrors((prev) => ({ ...prev, examStartDate: false }));
+                  }}
                 />
               </div>
               <div className="input-group">
@@ -239,9 +303,17 @@ const TimetablePage: React.FC = () => {
                 </label>
                 <input
                   type="date"
-                  className="w-full bg-page border border-brick/10 px-3 py-2 rounded text-xs font-bold"
+                  className={`w-full bg-page border px-3 py-2 rounded text-xs font-bold ${
+                    errors.examEndDate
+                      ? "border-status-error ring-1 ring-status-error/20"
+                      : "border-brick/10"
+                  }`}
                   value={examEndDate}
-                  onChange={(e) => setExamEndDate(e.target.value)}
+                  onChange={(e) => {
+                    setExamEndDate(e.target.value);
+                    if (errors.examEndDate)
+                      setErrors((prev) => ({ ...prev, examEndDate: false }));
+                  }}
                 />
               </div>
             </div>
@@ -264,8 +336,16 @@ const TimetablePage: React.FC = () => {
                 min={1}
                 max={5}
                 value={periodsPerDay}
-                onChange={(e) => setPeriodsPerDay(Number(e.target.value))}
-                className="w-full bg-page border border-brick/10 px-3 py-2 rounded text-xs font-bold"
+                onChange={(e) => {
+                  setPeriodsPerDay(Number(e.target.value));
+                  if (errors.periodsPerDay)
+                    setErrors((prev) => ({ ...prev, periodsPerDay: false }));
+                }}
+                className={`w-full bg-page border px-3 py-2 rounded text-xs font-bold ${
+                  errors.periodsPerDay
+                    ? "border-status-error ring-1 ring-status-error/20"
+                    : "border-brick/10"
+                }`}
               />
             </div>
 

@@ -2,6 +2,12 @@ import React, { useState, FormEvent } from "react";
 import { FiUserPlus } from "react-icons/fi";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { FiChevronDown } from "react-icons/fi";
+import {
+  departmentService,
+  Department,
+} from "./services/api/departmentService";
+import { programService, Program } from "./services/api/programService";
 
 interface StudentFormProps {
   onStudentform?: (val: string) => void;
@@ -23,6 +29,34 @@ export default function StudentForm({ onStudentform }: StudentFormProps) {
   const [prog, setProgr] = useState("");
   const [middlename, setMiddle] = useState("");
 
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [programs, setPrograms] = useState<Program[]>([]);
+  const [filteredPrograms, setFilteredPrograms] = useState<Program[]>([]);
+
+  React.useEffect(() => {
+    const fetchData = async () => {
+      const [depts, progs] = await Promise.all([
+        departmentService.getAll(),
+        programService.getAll(),
+      ]);
+      setDepartments(depts);
+      setPrograms(progs);
+      setFilteredPrograms(progs);
+    };
+    fetchData();
+  }, []);
+
+  const handleDeptChange = (id: string) => {
+    setDeptid(id);
+    if (id) {
+      setFilteredPrograms(
+        programs.filter((p) => String(p.deptID) === String(id)),
+      );
+    } else {
+      setFilteredPrograms(programs);
+    }
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (
@@ -36,6 +70,29 @@ export default function StudentForm({ onStudentform }: StudentFormProps) {
       !middlename
     ) {
       return toast.warn("Verify all mandatory academic fields");
+    }
+
+    // 1. Matriculation Number Format Validation
+    const matricRegex = /^[A-Z]{3}\/[A-Z]{3}\/\d{2}\/\d{3}$/i;
+    // Example: AUL/CMP/23/074
+    if (!matricRegex.test(matric)) {
+      toast.error(
+        "Format Error: Matric No should follow institutional pattern (e.g. AUL/CMP/23/074)",
+      );
+      return;
+    }
+
+    // 2. Commencement Session Validation
+    const sessionRegex = /^\d{4}\/\d{4}$/;
+    if (!sessionRegex.test(startsess)) {
+      toast.error("Format Error: Session must be YYYY/YYYY (e.g. 2023/2024)");
+      return;
+    }
+
+    // 3. Dept Identifier Logic
+    if (isNaN(Number(deptid)) || Number(deptid) < 1) {
+      toast.error("Data Integrity Error: Invalid Departmental Identifier");
+      return;
     }
 
     try {
@@ -181,12 +238,24 @@ export default function StudentForm({ onStudentform }: StudentFormProps) {
             <label className="block text-[10px] font-black uppercase tracking-widest text-institutional-muted mb-2">
               Departmental Identifier
             </label>
-            <input
-              type="number"
-              className="w-full px-4 py-2.5 bg-page border border-brick/10 rounded-institutional text-sm font-bold text-institutional-primary focus:outline-none focus:ring-2 focus:ring-brick/20 focus:border-brick transition-all"
-              value={deptid}
-              onChange={(e) => setDeptid(e.target.value)}
-            />
+            <div className="relative">
+              <select
+                className="w-full px-4 py-2.5 bg-page border border-brick/10 rounded-institutional text-sm font-bold text-institutional-primary focus:outline-none focus:ring-2 focus:ring-brick/20 focus:border-brick transition-all appearance-none"
+                value={deptid}
+                onChange={(e) => handleDeptChange(e.target.value)}
+                required
+              >
+                <option value="">Select Department</option>
+                {departments.map((dept) => (
+                  <option key={dept.id} value={dept.id}>
+                    {dept.name}
+                  </option>
+                ))}
+              </select>
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-institutional-muted">
+                <FiChevronDown />
+              </div>
+            </div>
           </div>
 
           <div className="input-group">
@@ -207,14 +276,31 @@ export default function StudentForm({ onStudentform }: StudentFormProps) {
             <label className="block text-[10px] font-black uppercase tracking-widest text-institutional-muted mb-2">
               Academic Programme
             </label>
-            <input
-              type="text"
-              className="w-full px-4 py-2.5 bg-page border border-brick/10 rounded-institutional text-sm font-bold text-institutional-primary focus:outline-none focus:ring-2 focus:ring-brick/20 focus:border-brick transition-all"
-              value={prog}
-              onChange={(e) => setProgr(e.target.value)}
-              placeholder="e.g. Computer Science"
-              required
-            />
+            <div className="relative">
+              <select
+                className="w-full px-4 py-2.5 bg-page border border-brick/10 rounded-institutional text-sm font-bold text-institutional-primary focus:outline-none focus:ring-2 focus:ring-brick/20 focus:border-brick transition-all appearance-none"
+                value={progid}
+                onChange={(e) => {
+                  const pId = e.target.value;
+                  setProgrId(pId);
+                  const selectedProg = programs.find(
+                    (p) => String(p.id) === String(pId),
+                  );
+                  if (selectedProg) setProgr(selectedProg.name);
+                }}
+                required
+              >
+                <option value="">Select Programme</option>
+                {filteredPrograms.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-institutional-muted">
+                <FiChevronDown />
+              </div>
+            </div>
           </div>
         </div>
 

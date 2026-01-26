@@ -7,6 +7,7 @@ import {
   FiXCircle,
   FiUserPlus,
   FiFilter,
+  FiSearch,
 } from "react-icons/fi";
 
 interface Staff {
@@ -54,14 +55,51 @@ export default function StaffList({ onStaffList }: StaffListProps) {
   const [staffs, setStaffs] = useState<Staff[]>([]);
   const [editId, setEditId] = useState<string | null>(null);
   const [editStaffData, setEditStaffData] = useState<Partial<Staff>>({});
+  const [searchQuery, setSearchQuery] = useState("");
 
   const handleFormChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
+
+  const filteredStaff = staffs.filter((staff) => {
+    const searchStr = searchQuery.toLowerCase();
+    return (
+      staff.surname?.toLowerCase().includes(searchStr) ||
+      staff.firstname?.toLowerCase().includes(searchStr) ||
+      staff.staff_id?.toLowerCase().includes(searchStr) ||
+      staff.discipline?.toLowerCase().includes(searchStr)
+    );
+  });
+
+  const totalPages = Math.ceil(filteredStaff.length / itemsPerPage);
+  const paginatedStaff = filteredStaff.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage,
+  );
+
   const submitStaff = async (e: FormEvent) => {
     e.preventDefault();
+
+    // 1. Mandatory Data Check
+    const { surnamee, firstname, staff_id, title, statusid, type, dutyCount } =
+      formData;
+    if (!surnamee || !firstname || !staff_id || !title || !statusid || !type) {
+      toast.warn("Verify all mandatory academic personnel fields");
+      return;
+    }
+
+    // 2. Load Factor Validation
+    if (isNaN(Number(dutyCount)) || Number(dutyCount) < 0) {
+      toast.error(
+        "Data integrity Error: Duty count must be a positive integer",
+      );
+      return;
+    }
+
     try {
       const res = await fetch("http://localhost:8080/staff/post", {
         method: "POST",
@@ -250,6 +288,34 @@ export default function StaffList({ onStaffList }: StaffListProps) {
         </div>
 
         <div className="institutional-table-container">
+          <div className="p-4 border-b border-brick/10 bg-page/50 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+            <div className="flex flex-1 max-w-2xl gap-2">
+              <div className="relative flex-1 group">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-brick group-focus-within:scale-110 transition-transform">
+                  <FiSearch size={16} />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search by Name, ID or Discipline..."
+                  className="w-full pl-10 pr-4 py-2.5 bg-surface border border-brick/10 rounded-institutional text-sm font-bold text-institutional-primary focus:outline-none focus:ring-2 focus:ring-brick/20 transition-all shadow-sm"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+              <button
+                className="px-6 py-2.5 bg-brick text-white rounded-institutional text-[10px] font-black uppercase tracking-widest shadow-md hover:bg-brick-deep transition-all flex items-center gap-2 shrink-0"
+                onClick={() =>
+                  toast.info(`Faculty filtered by: ${searchQuery || "All"}`)
+                }
+              >
+                <FiSearch size={14} /> Search
+              </button>
+            </div>
+            <div className="text-[10px] font-black uppercase text-institutional-muted tracking-widest bg-brick/5 px-3 py-2 rounded-full border border-brick/10 inline-flex items-center self-start md:self-center">
+              Personnel Registry: {filteredStaff.length} records
+            </div>
+          </div>
+
           <table className="institutional-table">
             <thead>
               <tr>
@@ -262,7 +328,7 @@ export default function StaffList({ onStaffList }: StaffListProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-brick/5">
-              {staffs.map((staff) => (
+              {paginatedStaff.map((staff) => (
                 <tr
                   key={staff.id}
                   className="hover:bg-brick/5 transition-colors group"
@@ -396,6 +462,39 @@ export default function StaffList({ onStaffList }: StaffListProps) {
               ))}
             </tbody>
           </table>
+
+          {totalPages > 1 && (
+            <div className="flex justify-between items-center px-4 py-4 border-t border-brick/10 bg-page/30">
+              <p className="text-[10px] uppercase font-bold text-institutional-muted tracking-widest">
+                Page {currentPage} of {totalPages}
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="px-4 py-2 bg-white border border-brick/10 rounded text-[10px] font-black uppercase disabled:opacity-50 hover:bg-brick/5 transition-all"
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() =>
+                    setCurrentPage((p) => Math.min(totalPages, p + 1))
+                  }
+                  disabled={currentPage === totalPages}
+                  className="px-4 py-2 bg-white border border-brick/10 rounded text-[10px] font-black uppercase disabled:opacity-50 hover:bg-brick/5 transition-all"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+          {filteredStaff.length === 0 && (
+            <div className="py-20 text-center opacity-40 italic">
+              {searchQuery
+                ? `No personnel records found matching "${searchQuery}"`
+                : "No academic personnel records found in current faculty ledger."}
+            </div>
+          )}
         </div>
       </section>
     </div>

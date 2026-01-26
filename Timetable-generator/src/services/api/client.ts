@@ -14,36 +14,25 @@ const apiClient = axios.create({
   },
 });
 
-// Request interceptor - disciplined session management
+// Request interceptor - simplified
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("auth_token");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+    // Backend doesn't use Bearer tokens, but we might pass headers if needed
     return config;
   },
   (error) => Promise.reject(error),
 );
 
-// Response interceptor - robust error orchestration
+// Response interceptor - basic error handling
 apiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
-    // Handle 401 Unauthorized - deterministic session purge
-    if (error.response?.status === 401) {
-      localStorage.removeItem("auth_token");
-      window.location.href = "/login";
-    }
-
     // Technical Error Reconstruction
     if (error.message === "Network Error") {
       error.message =
         "System connectivity issue - ensure academic servers are operational.";
     } else if (error.code === "ECONNABORTED") {
       error.message = `Registry timeout - Server at ${API_BASE_URL} responded with a wait error.`;
-    } else if (!error.response && error.request) {
-      error.message = `Critical Connection Failure - Unable to verify registry at ${API_BASE_URL}.`;
     }
 
     return Promise.reject(error);

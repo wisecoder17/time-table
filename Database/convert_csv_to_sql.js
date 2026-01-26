@@ -1,278 +1,297 @@
 const fs = require("fs");
 const path = require("path");
 
+// Configuration
 const csvPath = path.join(__dirname, "../asset/AAv.csv");
-const sqlPath = path.join(__dirname, "seeded_data.sql");
+const sqlPath = path.join(__dirname, "seeded_data_v2.sql"); // Unified seeder for v2 schema
+
+/**
+ * Excel represents integers as dates (01/01/1900 = 1).
+ * This function converts date-formatted integers back to numbers.
+ */
+function cleanValue(val) {
+  if (!val || val === "NULL" || val === "" || val === '""') return null;
+  val = val.replace(/^"|"$/g, "").trim();
+
+  const dateMatch = val.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (dateMatch) {
+    const [_, d, m, y] = dateMatch;
+    const day = parseInt(d, 10);
+    const month = parseInt(m, 10);
+    const year = parseInt(y, 10);
+    const dt = new Date(Date.UTC(year, month - 1, day));
+    const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+    const diffDays = Math.round((dt - excelEpoch) / (1000 * 60 * 60 * 24));
+    if (diffDays >= 0 && diffDays < 100000) return diffDays;
+  }
+
+  const parsedNum = parseInt(val, 10);
+  if (!isNaN(parsedNum) && String(parsedNum) === val) return parsedNum;
+
+  return val;
+}
+
+function escape(val) {
+  if (val === null || val === undefined) return "NULL";
+  if (typeof val === "number") return val;
+  return `'${String(val).replace(/'/g, "''")}'`;
+}
 
 const rawData = fs.readFileSync(csvPath, "utf8");
 const lines = rawData.split(/\r?\n/);
 
-let sqlOutput = `-- Auto-generated seed file based on AAv.csv\n\n`;
-sqlOutput += `-- find and delete '(24, NULL, NULL, 1, 0);' possibly line 82`;
-sqlOutput += `SET FOREIGN_KEY_CHECKS = 0;\n\n`;
+// Data structure following schema_v2.sql
+const tables = {
+  centre: [],
+  department: [],
+  program: [],
+  course: [],
+  staff: [],
+  student: [],
+  venue: [],
+  registration: [],
+  users: [],
+  system_settings: [],
+};
 
-// Helper to parse "Date" integers (e.g., 01/01/1900 -> 1)
-function parseExcelfiedInt(val) {
-  if (!val) return "NULL";
-  if (val === "NULL") return "NULL";
-
-  // Check if it's a date string like DD/MM/YYYY
-  // Heuristic: If year is 1900, return day.
-  // This is a simplified guess because the CSV seems to have Excel date formatting artifacts.
-  // However, looking at "04/01/1900" for ID 4, it matches the day.
-  // "05/01/1900" -> 5.
-
-  // Regex for DD/MM/YYYY
-  const dateMatch = val.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  if (dateMatch) {
-    const [_, day, month, year] = dateMatch;
-    if (year === "1900" && month === "01") {
-      return parseInt(day, 10);
-    }
-    // If year is not 1900, it might be a larger integer being displayed as a date?
-    // e.g. 22/01/1901 for enCount.
-    // Excel: 1 = Jan 1 1900. 367 = Jan 1 1901 (approx).
-    // This is too complex to guess perfectly without knowing the column intent,
-    // but for IDs (1-31), the day-of-month logic for Jan 1900 seems to hold.
-    // For larger numbers, we might just default to '0' or NULL to avoid breaking DB constraints,
-    // unless we can reliably decode it.
-    return `'${val}'`; // Keep as string if unsure, or comment out.
-  }
-
-  const parsed = parseInt(val, 10);
-  return isNaN(parsed) ? `'${val.replace(/'/g, "\\'")}'` : parsed;
-}
-
-function escapeString(val) {
-  if (!val || val === "NULL") return "NULL";
-  return `'${val.replace(/'/g, "\\'")}'`;
-}
-
-// Processing Sections
 let currentSection = "";
+const seenMatrics = new Set();
+const seenCourses = new Set();
+const seenStaff = new Set();
+const validCentres = new Set();
+const validDepts = new Set();
+const validPrograms = new Set();
 
-// Data store
-// Data store
-const centres = [];
-const departments = [];
-const courses = [];
-const programs = [];
-const registrations = [];
-
-// ID Tracking for Validations
-const validCentreIds = new Set();
-const validDeptIds = new Set();
-let firstCentreId = 1;
-let firstDeptId = 1;
-
-// Section Headers detection
-// Line 19: id,Code,name... -> Colleges (Centre)
-// Line 33: code,title,unit... -> Courses
-// Line 641: ID,Name,Code,CollegeID... -> Departments
-// Line 681: ID,Name,code,Duration... -> Programs/Depts extra?
-// Line 740: ID,collegeID,session... -> Registrations
+console.log("DBA: Processing CSV for Schema v2 Compliance...");
 
 for (let i = 0; i < lines.length; i++) {
   const line = lines[i].trim();
   if (!line) continue;
-  const cols = line
-    .split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/)
-    .map((c) => c.replace(/^"|"$/g, "").trim()); // Split by comma respecting quotes
+  const rawCols = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+  if (rawCols.length < 2) continue;
 
-  // Detect section
+  const cols = rawCols.map((c) => cleanValue(c));
+  const first = String(rawCols[0] || "")
+    .toLowerCase()
+    .replace(/^"|"$/g, "");
+  const second = String(rawCols[1] || "")
+    .toLowerCase()
+    .replace(/^"|"$/g, "");
+
+  // SECTION DETECTION
   if (
-    cols[0].toLowerCase() === "id" &&
-    cols[1].toLowerCase() === "code" &&
-    cols[2].toLowerCase() === "name"
+    first === "id" &&
+    second === "code" &&
+    String(rawCols[2]).toLowerCase().includes("name")
   ) {
     currentSection = "CENTRE";
     continue;
   }
-  if (cols[0].toLowerCase() === "code" && cols[1].toLowerCase() === "title") {
+  if (
+    first === "id" &&
+    second === "name" &&
+    String(rawCols[3]).toLowerCase().includes("collegeid")
+  ) {
+    currentSection = "DEPT";
+    continue;
+  }
+  if (
+    first === "id" &&
+    second === "name" &&
+    String(rawCols[9]).toLowerCase().includes("deptid")
+  ) {
+    currentSection = "PROG";
+    continue;
+  }
+  if (first === "code" && second === "title") {
     currentSection = "COURSE";
     continue;
   }
-  if (
-    cols[0].toLowerCase() === "id" &&
-    cols[1].toLowerCase() === "name" &&
-    cols[3].toLowerCase() === "collegeid"
-  ) {
-    currentSection = "DEPARTMENT";
+  if (first === "serial" && second === "staffid") {
+    currentSection = "STAFF";
+    continue;
+  }
+  if (first === "matricno" && second === "fullname") {
+    currentSection = "STUDENT";
+    continue;
+  }
+  if (first === "id" && (rawCols[2] || "").toLowerCase().includes("vcode")) {
+    currentSection = "VENUE";
     continue;
   }
   if (
-    cols[0].toLowerCase() === "id" &&
-    cols[1].toLowerCase() === "name" &&
-    cols[2].toLowerCase() === "code" &&
-    cols[9].toLowerCase() === "deptid"
+    first === "id" &&
+    second === "collegeid" &&
+    String(rawCols[4]).toLowerCase().includes("matricno")
   ) {
-    currentSection = "PROGRAM";
-    continue;
-  }
-  if (
-    cols[0].toLowerCase() === "id" &&
-    cols[1].toLowerCase() === "collegeid" &&
-    cols[4].toLowerCase() === "matricno"
-  ) {
-    currentSection = "REGISTRATION";
+    currentSection = "REG";
     continue;
   }
 
-  if (currentSection === "CENTRE") {
-    // id,Code,name,state...
-    const id = parseExcelfiedInt(cols[0]);
-    const code = escapeString(cols[1]);
-    const name = escapeString(cols[2]);
-    if (typeof id === "number") {
-      centres.push(`(${id}, ${code}, 2, ${name}, 0)`);
-      validCentreIds.add(id);
-      if (validCentreIds.size === 1) firstCentreId = id;
-    }
-  } else if (currentSection === "COURSE") {
-    // code,title,unit,semester...
-    const code = escapeString(cols[0]);
-    // Clean NULLs
-    const title = escapeString(cols[1] === "NULL" ? "" : cols[1]);
-    let unit = parseInt(cols[2]);
-    if (isNaN(unit)) unit = 0;
-
-    let semester = 1;
-    const semRaw = cols[3];
-    if (semRaw && semRaw.includes("02/01/1900")) semester = 2;
-    else if (semRaw && semRaw.includes("01/01/1900")) semester = 1;
-
-    // enCount logic - skipping for now, hardcode 0
-    const en_count = 0;
-
-    // Use default Valid IDs if possible or defaults
-    const college_id = firstCentreId;
-    const department_id = firstDeptId;
-
-    if (cols[0] && cols[0] !== "NULL") {
-      courses.push(
-        `(${code}, ${unit}, ${title}, ${semester}, 0, ${en_count}, ${college_id}, ${department_id})`,
+  try {
+    if (currentSection === "CENTRE") {
+      const id = cols[0];
+      if (typeof id !== "number") continue;
+      tables.centre.push(
+        `(${id}, ${escape(cols[1])}, ${escape(cols[2])}, 1, 0)`,
       );
-    }
-  } else if (currentSection === "DEPARTMENT") {
-    // ... (unchanged)
-    // ID,Name,Code,CollegeID
-    const id = parseExcelfiedInt(cols[0]);
-    const name = escapeString(cols[1]);
-    const code = escapeString(cols[2]);
-    let collegeId = parseExcelfiedInt(cols[3]);
-
-    const validId = typeof id === "number" ? id : 0;
-
-    // Validate CollegeID
-    if (typeof collegeId !== "number" || !validCentreIds.has(collegeId)) {
-      collegeId = firstCentreId;
-    }
-
-    if (validId > 0) {
-      departments.push(`(${validId}, ${name}, ${code}, ${collegeId})`);
-      validDeptIds.add(validId);
-      if (validDeptIds.size === 1) firstDeptId = validId;
-    }
-  } else if (currentSection === "PROGRAM") {
-    // ... (unchanged)
-    // ID,Name,code... DeptID
-    const id = parseExcelfiedInt(cols[0]);
-    const name = escapeString(cols[1]);
-    const code = escapeString(cols[2]);
-    let deptId = parseExcelfiedInt(cols[9]);
-
-    const validId = typeof id === "number" ? id : 0;
-
-    // Validate DeptID
-    if (typeof deptId !== "number" || !validDeptIds.has(deptId)) {
-      deptId = firstDeptId;
-    }
-
-    if (validId > 0) {
-      programs.push(`(${validId}, ${name}, ${code}, ${deptId}, 0)`);
-    }
-  } else if (currentSection === "REGISTRATION") {
-    // ... (unchanged)
-    // ID,collegeID,session,semester,matricNo,courseCode,level
-    let centreId = parseExcelfiedInt(cols[1]);
-    const session = escapeString(cols[2]);
-    const semRaw = cols[3];
-    let semester = 1;
-    if (semRaw && semRaw.includes("02/01/1900")) semester = 2;
-
-    const matric = escapeString(cols[4]);
-    const courseCode = escapeString(cols[5]);
-
-    // Validate CentreID
-    if (typeof centreId !== "number" || !validCentreIds.has(centreId)) {
-      centreId = firstCentreId;
-    }
-
-    if (matric !== "NULL" && courseCode !== "NULL") {
-      registrations.push(
-        `(0, ${centreId}, ${matric}, ${session}, ${semester}, ${courseCode})`,
+      validCentres.add(id);
+    } else if (currentSection === "DEPT") {
+      const id = cols[0];
+      if (typeof id !== "number") continue;
+      const collId = validCentres.has(cols[3]) ? cols[3] : 1;
+      tables.department.push(
+        `(${id}, ${escape(cols[1])}, ${escape(cols[2])}, ${collId})`,
       );
+      validDepts.add(id);
+    } else if (currentSection === "PROG") {
+      const id = cols[0];
+      if (typeof id !== "number") continue;
+      const deptId = validDepts.has(cols[9]) ? cols[9] : 1;
+      tables.program.push(
+        `(${id}, ${escape(cols[1])}, ${escape(cols[2])}, ${deptId}, 0)`,
+      );
+      validPrograms.add(id);
+    } else if (currentSection === "COURSE") {
+      const code = cols[0];
+      if (!code || code === "code" || seenCourses.has(code)) continue;
+      const collId = validCentres.has(cols[6]) ? cols[6] : 1;
+      const deptId = validDepts.has(cols[7])
+        ? cols[7]
+        : validDepts.keys().next().value || 1;
+      tables.course.push(
+        `(${escape(code)}, ${escape(cols[1])}, ${cols[2] || 3}, ${cols[3] === 2 ? 2 : 1}, 2, 0, ${collId}, ${deptId})`,
+      );
+      seenCourses.add(code);
+    } else if (currentSection === "STAFF") {
+      const staffId = String(cols[1]);
+      if (!staffId || staffId === "StaffID" || seenStaff.has(staffId)) continue;
+      const firstN = cols[3] || "Staff";
+      const surN = cols[5] || (cols[6] ? cols[6].split(" ")[1] : "Member");
+      const deptId = validDepts.has(cols[9]) ? cols[9] : 1;
+      tables.staff.push(
+        `(${escape(staffId)}, ${escape(cols[2])}, ${escape(surN)}, ${escape(firstN)}, ${escape(cols[4])}, ${deptId}, 1, 1, 1, 0, NULL)`,
+      );
+      seenStaff.add(staffId);
+    } else if (currentSection === "STUDENT") {
+      const matric = String(cols[0]);
+      if (!matric || matric === "matricNo" || seenMatrics.has(matric)) continue;
+      const names = String(cols[1] || "").split(/\s+/);
+      const deptId = validDepts.has(cols[3]) ? cols[3] : 1;
+      const progId = validPrograms.has(cols[4]) ? cols[4] : null;
+      tables.student.push(
+        `(${escape(matric)}, ${escape(names[0] || "Student")}, ${escape(names[1] || "Name")}, ${escape(names.slice(2).join(" "))}, 'M', ${deptId}, ${escape(progId)}, '2023/2024', ${cols[5] || 100})`,
+      );
+      seenMatrics.add(matric);
+    } else if (currentSection === "VENUE") {
+      const id = cols[0];
+      if (typeof id !== "number") continue;
+      const collId = validCentres.has(cols[6]) ? cols[6] : 1;
+      tables.venue.push(
+        `(${id}, ${escape(cols[2])}, ${escape(cols[1])}, ${cols[4] || 100}, 0, ${collId}, ${cols[8] || 1}, ${escape(cols[1])})`,
+      );
+    } else if (currentSection === "REG") {
+      const matric = String(cols[4]);
+      const course = String(cols[5]);
+      if (seenMatrics.has(matric) && seenCourses.has(course)) {
+        tables.registration.push(
+          `(NULL, ${escape(matric)}, ${escape(course)}, ${escape(cols[2])}, ${cols[3] === 2 ? 2 : 1}, ${cols[1] || 1})`,
+        );
+      }
     }
-  }
+  } catch (e) {}
 }
 
-// Build SQL
-sqlOutput += `DELETE FROM \`registration\`;\n`;
-sqlOutput += `DELETE FROM \`course\`;\n`;
-sqlOutput += `DELETE FROM \`program\`;\n`;
-sqlOutput += `DELETE FROM \`users\`;\n`;
-sqlOutput += `DELETE FROM \`staff\`;\n`;
-sqlOutput += `DELETE FROM \`student\`;\n`;
-sqlOutput += `DELETE FROM \`slashedcourse\`;\n`;
-sqlOutput += `DELETE FROM \`venue\`;\n`;
-sqlOutput += `DELETE FROM \`department\`;\n`;
-sqlOutput += `DELETE FROM \`centre\`;\n\n`;
+// System initialization
+tables.system_settings.push(`('academic_session', '2023/2024', 'academic')`);
+tables.system_settings.push(`('current_semester', '1', 'academic')`);
+tables.users.push(`(1, 'uche', 'uche_hashed_pw', 'ADMIN', NULL, 1, 1)`); // Logic for uche user
 
-sqlOutput += `INSERT INTO \`centre\` (\`id\`, \`code\`, \`type\`, \`name\`, \`encount\`) VALUES\n`;
-sqlOutput += centres.join(",\n") + ";\n\n";
+// SQL Generation
+let sql = `-- Refactored Seeder Script (v2)\nSET FOREIGN_KEY_CHECKS = 0;\n\n`;
+const schemaOrder = [
+  "system_settings",
+  "users",
+  "registration",
+  "course",
+  "staff",
+  "student",
+  "program",
+  "venue",
+  "department",
+  "centre",
+];
+schemaOrder.forEach((t) => (sql += `TRUNCATE TABLE \`${t}\`;\n`));
+sql += `\n`;
 
-sqlOutput += `INSERT INTO \`department\` (\`id\`, \`name\`, \`code\`, \`college_id\`) VALUES\n`;
-sqlOutput += departments.join(",\n") + ";\n\n";
-
-// Programs
-if (programs.length > 0) {
-  sqlOutput += `INSERT INTO \`program\` (\`id\`, \`name\`, \`code\`, \`deptID\` , \`new_codeid\`) VALUES\n`;
-  for (let i = 0; i < programs.length; i++) {
-    sqlOutput += programs[i];
-    if (i < programs.length - 1) {
-      sqlOutput += ",\n";
-    }
+const generateInsert = (table, columns, items) => {
+  if (items.length === 0) return "";
+  let out = "";
+  const unique = [...new Set(items)];
+  const size = 500;
+  for (let i = 0; i < unique.length; i += size) {
+    out +=
+      `INSERT INTO \`${table}\` (${columns}) VALUES\n` +
+      unique.slice(i, i + size).join(",\n") +
+      ";\n\n";
   }
-  sqlOutput += ";\n\n";
-}
+  return out;
+};
 
-// Courses
-if (courses.length > 0) {
-  const chunkSize = 500;
-  for (let i = 0; i < courses.length; i += chunkSize) {
-    const chunk = courses.slice(i, i + chunkSize);
-    if (i > 0) {
-      sqlOutput += `INSERT INTO \`course\` (\`code\`, \`unit\`, \`title\`, \`semester\`, \`examtype\`, \`en_count\`, \`college_id\`, \`department_id\`) VALUES\n`;
-    } else {
-      sqlOutput += `INSERT INTO \`course\` (\`code\`, \`unit\`, \`title\`, \`semester\`, \`examtype\`, \`en_count\`, \`college_id\`, \`department_id\`) VALUES\n`;
-    }
-    sqlOutput += chunk.join(",\n");
-    sqlOutput += ";\n\n";
-  }
-}
+sql += generateInsert(
+  "centre",
+  "`id`, `code`, `name`, `type`, `encount`",
+  tables.centre,
+);
+sql += generateInsert(
+  "department",
+  "`id`, `name`, `code`, `college_id`",
+  tables.department,
+);
+sql += generateInsert(
+  "program",
+  "`id`, `name`, `code`, `dept_id`, `new_codeid`",
+  tables.program,
+);
+sql += generateInsert(
+  "venue",
+  "`id`, `venue_code`, `name`, `capacity`, `type`, `college_id`, `preference_rank`, `location_note`",
+  tables.venue,
+);
+sql += generateInsert(
+  "student",
+  "`matric_no`, `surname`, `firstname`, `middlename`, `gender`, `dept_id`, `program_id`, `start_session`, `current_level`",
+  tables.student,
+);
+sql += generateInsert(
+  "staff",
+  "`staff_id`, `title`, `surname`, `firstname`, `middlename`, `dept_id`, `status_id`, `staff_type`, `is_active`, `duty_count`, `specialization`",
+  tables.staff,
+);
+sql += generateInsert(
+  "course",
+  "`code`, `title`, `unit`, `semester`, `exam_type`, `en_count`, `college_id`, `dept_id`",
+  tables.course,
+);
+sql += generateInsert(
+  "registration",
+  "`id`, `matric_no`, `course_code`, `session`, `semester`, `college_id`",
+  tables.registration,
+);
+sql += generateInsert(
+  "users",
+  "`id`, `username`, `password`, `role`, `staff_id`, `dept_id`, `college_id`",
+  tables.users,
+);
+sql += generateInsert(
+  "system_settings",
+  "`setting_key`, `setting_value`, `category`",
+  tables.system_settings,
+);
 
-// Registrations
-if (registrations.length > 0) {
-  const chunkSize = 500;
-  for (let i = 0; i < registrations.length; i += chunkSize) {
-    const chunk = registrations.slice(i, i + chunkSize);
-    sqlOutput += `INSERT INTO \`registration\` (\`regDMC\`, \`centreID\`, \`matricno\`, \`session\`, \`semester\`, \`course_code\`) VALUES\n`;
-    sqlOutput += chunk.join(",\n");
-    sqlOutput += ";\n\n";
-  }
-}
-
-sqlOutput += `SET FOREIGN_KEY_CHECKS = 1;\n`;
-
-fs.writeFileSync(sqlPath, sqlOutput);
-console.log("SQL script generated at:", sqlPath);
+sql += `SET FOREIGN_KEY_CHECKS = 1;\n`;
+fs.writeFileSync(sqlPath, sql);
+console.log(`DBA: Success! Clean seeder generated at ${sqlPath}.`);
+console.log(
+  `Integrity Check: ${tables.student.length} Students, ${tables.course.length} Courses, ${tables.registration.length} Verified Registrations.`,
+);

@@ -1,4 +1,5 @@
 import React, { useEffect, useState, ChangeEvent, FormEvent } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "react-toastify";
 import {
   FiEdit2,
@@ -7,7 +8,9 @@ import {
   FiXCircle,
   FiLayers,
   FiActivity,
+  FiChevronDown,
 } from "react-icons/fi";
+import { collegeService, College } from "./services/api/collegeService";
 
 interface Department {
   id: string;
@@ -32,6 +35,11 @@ export default function DepartmentList({ onDepartList }: DepartmentListProps) {
   });
 
   const [departments, setDepartments] = useState<Department[]>([]);
+  const { data: colleges = [] } = useQuery({
+    queryKey: ["colleges"],
+    queryFn: collegeService.getAll,
+    staleTime: 1000 * 60 * 30,
+  });
   const [editId, setEditId] = useState<string | null>(null);
   const [editDeptData, setEditDeptData] = useState<Partial<Department>>({});
 
@@ -139,31 +147,61 @@ export default function DepartmentList({ onDepartList }: DepartmentListProps) {
 
         <form onSubmit={handleDepartmentSubmit} className="space-y-6">
           <div className="form-grid-institutional">
-            {[
-              {
-                label: "Department Code",
-                name: "code",
-                placeholder: "e.g. CSC / MTH",
-              },
-              { label: "College ID", name: "collegeId" },
-              { label: "Full Academic Name", name: "name", isWide: true },
-            ].map((field) => (
-              <div
-                key={field.name}
-                className={`space-y-2 ${field.isWide ? "md:col-span-2" : ""}`}
-              >
-                <label className="block text-[10px] font-black uppercase tracking-widest text-institutional-muted">
-                  {field.label}
-                </label>
-                <input
-                  type="text"
-                  name={field.name}
-                  className="w-full px-4 py-2.5 bg-page border border-brick/10 rounded-institutional text-sm font-bold text-institutional-primary focus:outline-none focus:ring-2 focus:ring-brick/20 transition-all"
-                  value={(formData as any)[field.name]}
-                  onChange={handleInputChangeForm}
-                />
+            <div className="space-y-2">
+              <label className="block text-[10px] font-black uppercase tracking-widest text-institutional-muted">
+                Department Code
+              </label>
+              <input
+                type="text"
+                name="code"
+                placeholder="e.g. CSC / MTH"
+                className="w-full px-4 py-2.5 bg-page border border-brick/10 rounded-institutional text-sm font-bold text-institutional-primary focus:outline-none focus:ring-2 focus:ring-brick/20 transition-all"
+                value={formData.code}
+                onChange={handleInputChangeForm}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-[10px] font-black uppercase tracking-widest text-institutional-muted">
+                Affiliated College
+              </label>
+              <div className="relative">
+                <select
+                  name="collegeId"
+                  className="w-full px-4 py-2.5 bg-page border border-brick/10 rounded-institutional text-sm font-bold text-institutional-primary focus:outline-none focus:ring-2 focus:ring-brick/20 transition-all appearance-none"
+                  value={formData.collegeId}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      collegeId: e.target.value,
+                    }))
+                  }
+                >
+                  <option value="">Select College</option>
+                  {colleges.map((college) => (
+                    <option key={college.id} value={college.id}>
+                      {college.name}
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-institutional-muted">
+                  <FiChevronDown />
+                </div>
               </div>
-            ))}
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <label className="block text-[10px] font-black uppercase tracking-widest text-institutional-muted">
+                Full Academic Name
+              </label>
+              <input
+                type="text"
+                name="name"
+                className="w-full px-4 py-2.5 bg-page border border-brick/10 rounded-institutional text-sm font-bold text-institutional-primary focus:outline-none focus:ring-2 focus:ring-brick/20 transition-all"
+                value={formData.name}
+                onChange={handleInputChangeForm}
+              />
+            </div>
           </div>
           <div className="pt-4 border-t border-brick/5">
             <button
@@ -220,7 +258,7 @@ export default function DepartmentList({ onDepartList }: DepartmentListProps) {
                       />
                     </td>
                     <td className="px-4 py-2 text-center">
-                      <input
+                      <select
                         value={editDeptData.collegeId}
                         onChange={(e) =>
                           setEditDeptData((p) => ({
@@ -228,8 +266,14 @@ export default function DepartmentList({ onDepartList }: DepartmentListProps) {
                             collegeId: e.target.value,
                           }))
                         }
-                        className="w-16 mx-auto bg-page border border-brick/20 px-2 py-1 rounded text-xs text-center font-black"
-                      />
+                        className="w-full bg-page border border-brick/20 px-2 py-1 rounded text-xs font-bold"
+                      >
+                        {colleges.map((college) => (
+                          <option key={college.id} value={college.id}>
+                            {college.code || college.name}
+                          </option>
+                        ))}
+                      </select>
                     </td>
                     <td className="px-4 py-2 text-right space-x-2">
                       <button
@@ -255,8 +299,17 @@ export default function DepartmentList({ onDepartList }: DepartmentListProps) {
                       {dept.name}
                     </td>
                     <td className="text-center font-black opacity-80">
-                      <span className="status-pill status-pill-info">
-                        COL-{dept.collegeId}
+                      <span
+                        className="status-pill status-pill-info"
+                        title={
+                          colleges.find(
+                            (c) => String(c.id) === String(dept.collegeId),
+                          )?.name
+                        }
+                      >
+                        {colleges.find(
+                          (c) => String(c.id) === String(dept.collegeId),
+                        )?.code || `COL-${dept.collegeId}`}
                       </span>
                     </td>
                     <td className="text-right space-x-1">

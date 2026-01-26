@@ -1,6 +1,7 @@
 package com.example.springproject.model;
 
 import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import java.util.List;
 
@@ -14,6 +15,7 @@ public class Examtt1 {
     private Integer type;
     private String name;
     private Integer encount;
+    @JsonIgnore
     @OneToMany(mappedBy = "examtt1",cascade = CascadeType.ALL)
     private List<Department> departments;
 

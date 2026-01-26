@@ -1,6 +1,13 @@
 import React, { useEffect, useState, ChangeEvent, FormEvent } from "react";
 import { toast } from "react-toastify";
-import { FiEdit2, FiTrash2, FiSave, FiXCircle, FiMapPin } from "react-icons/fi";
+import {
+  FiEdit2,
+  FiTrash2,
+  FiSave,
+  FiXCircle,
+  FiMapPin,
+  FiSearch,
+} from "react-icons/fi";
 
 interface Venue {
   id: string;
@@ -33,14 +40,50 @@ export default function VenueList({ onVenueList }: VenueListProps) {
   const [venues, setVenues] = useState<Venue[]>([]);
   const [editId, setEditId] = useState<string | null>(null);
   const [editVenueData, setEditVenueData] = useState<Partial<Venue>>({});
+  const [searchQuery, setSearchQuery] = useState("");
 
   const handleInputChangeForm = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
+
+  const filteredVenues = venues.filter((venue) => {
+    const searchStr = searchQuery.toLowerCase();
+    return (
+      venue.venue_Code?.toLowerCase().includes(searchStr) ||
+      venue.name?.toLowerCase().includes(searchStr) ||
+      venue.location?.toLowerCase().includes(searchStr) ||
+      venue.type?.toLowerCase().includes(searchStr)
+    );
+  });
+
+  const totalPages = Math.ceil(filteredVenues.length / itemsPerPage);
+  const paginatedVenues = filteredVenues.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage,
+  );
+
   const handleVenueSubmit = async (e: FormEvent) => {
     e.preventDefault();
+
+    // 1. Mandatory Data Verification
+    const { venuecode, vname, capacity, vtype, loc } = formData;
+    if (!venuecode || !vname || !capacity || !vtype || !loc) {
+      toast.warn("Verify all mandatory infrastructure asset fields");
+      return;
+    }
+
+    // 2. Capacity Quantitative Integrity
+    if (isNaN(Number(capacity)) || Number(capacity) < 1) {
+      toast.error(
+        "Data Integrity Error: Spatial capacity must be a positive integer",
+      );
+      return;
+    }
+
     try {
       const res = await fetch("http://localhost:8080/venue/post", {
         method: "POST",
@@ -189,6 +232,36 @@ export default function VenueList({ onVenueList }: VenueListProps) {
 
       {/* Ledger Section */}
       <div className="institutional-table-container">
+        <div className="p-4 border-b border-brick/10 bg-page/50 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+          <div className="flex flex-1 max-w-2xl gap-2">
+            <div className="relative flex-1 group">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-brick group-focus-within:scale-110 transition-transform">
+                <FiSearch size={16} />
+              </div>
+              <input
+                type="text"
+                placeholder="Search by Code, Name, Type or Location..."
+                className="w-full pl-10 pr-4 py-2.5 bg-surface border border-brick/10 rounded-institutional text-sm font-bold text-institutional-primary focus:outline-none focus:ring-2 focus:ring-brick/20 transition-all shadow-sm"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <button
+              className="px-6 py-2.5 bg-brick text-white rounded-institutional text-[10px] font-black uppercase tracking-widest shadow-md hover:bg-brick-deep transition-all flex items-center gap-2 shrink-0"
+              onClick={() =>
+                toast.info(
+                  `Infrastructure filtered by: ${searchQuery || "All"}`,
+                )
+              }
+            >
+              <FiSearch size={14} /> Search
+            </button>
+          </div>
+          <div className="text-[10px] font-black uppercase text-institutional-muted tracking-widest bg-brick/5 px-3 py-2 rounded-full border border-brick/10 inline-flex items-center self-start md:self-center">
+            Portfolio: {filteredVenues.length} assets
+          </div>
+        </div>
+
         <table className="institutional-table">
           <thead>
             <tr>
@@ -201,7 +274,7 @@ export default function VenueList({ onVenueList }: VenueListProps) {
             </tr>
           </thead>
           <tbody className="divide-y divide-brick/5">
-            {venues.map((venue) => (
+            {paginatedVenues.map((venue) => (
               <tr
                 key={venue.id}
                 className="hover:bg-brick/5 transition-colors group"
@@ -298,7 +371,7 @@ export default function VenueList({ onVenueList }: VenueListProps) {
                     </td>
                     <td className="text-center font-black opacity-80">
                       {venue.capacity}{" "}
-                      <span className="text-[10px] opacity-40">Pax</span>
+                      <span className="text-[10px] opacity-40">Max</span>
                     </td>
                     <td className="text-center">
                       <span className="status-pill status-pill-info">
@@ -328,6 +401,39 @@ export default function VenueList({ onVenueList }: VenueListProps) {
             ))}
           </tbody>
         </table>
+
+        {totalPages > 1 && (
+          <div className="flex justify-between items-center px-4 py-4 border-t border-brick/10 bg-page/30">
+            <p className="text-[10px] uppercase font-bold text-institutional-muted tracking-widest">
+              Page {currentPage} of {totalPages}
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-4 py-2 bg-white border border-brick/10 rounded text-[10px] font-black uppercase disabled:opacity-50 hover:bg-brick/5 transition-all"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                }
+                disabled={currentPage === totalPages}
+                className="px-4 py-2 bg-white border border-brick/10 rounded text-[10px] font-black uppercase disabled:opacity-50 hover:bg-brick/5 transition-all"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
+        {filteredVenues.length === 0 && (
+          <div className="py-20 text-center opacity-40 italic">
+            {searchQuery
+              ? `No infrastructure assets found matching "${searchQuery}"`
+              : "No institutional infrastructure assets found in current ledger section."}
+          </div>
+        )}
       </div>
     </div>
   );

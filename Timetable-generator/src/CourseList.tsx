@@ -7,6 +7,7 @@ import {
   FiXCircle,
   FiBookOpen,
   FiPlus,
+  FiSearch,
 } from "react-icons/fi";
 
 interface CourseRecord {
@@ -44,14 +45,58 @@ export default function CourseList({ onCourseList }: CourseListProps) {
   const [editCourseData, setEditCourseData] = useState<Partial<CourseRecord>>(
     {},
   );
+  const [searchQuery, setSearchQuery] = useState("");
 
   const handleInputChangeForm = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
+
+  const filteredCourses = courses.filter((course) => {
+    const searchStr = searchQuery.toLowerCase();
+    return (
+      course.code?.toLowerCase().includes(searchStr) ||
+      course.title?.toLowerCase().includes(searchStr)
+    );
+  });
+
+  const totalPages = Math.ceil(filteredCourses.length / itemsPerPage);
+  const paginatedCourses = filteredCourses.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage,
+  );
+
   const handleCourseSubmit = async (e: FormEvent) => {
     e.preventDefault();
+
+    // 1. Structural Validation
+    const { code, title, enCount, unit, semester, examType } = formData;
+    if (!code || !title || !enCount || !unit || !semester || !examType) {
+      toast.warn("Verify all mandatory curriculum fields");
+      return;
+    }
+
+    // 2. Course Code Pattern (e.g. CSC 401)
+    const codeRegex = /^[A-Z]{3,4}\s?\d{3}$/;
+    if (!codeRegex.test(code.toUpperCase())) {
+      toast.error("Format Error: Course code invalid (e.g. CSC 401)");
+      return;
+    }
+
+    // 3. Quantitative Integrity
+    if (isNaN(Number(unit)) || Number(unit) < 0) {
+      toast.error("Data Error: Unit weight must be a positive integer");
+      return;
+    }
+
+    if (isNaN(Number(enCount)) || Number(enCount) < 0) {
+      toast.error("Data Error: Enrollment count must be a positive integer");
+      return;
+    }
+
     try {
       const res = await fetch("http://localhost:8080/course/done", {
         method: "POST",
@@ -152,7 +197,7 @@ export default function CourseList({ onCourseList }: CourseListProps) {
   };
 
   return (
-    <div className="space-y-12 animate-fadeIn">
+    <div className="space-y-10 animate-fadeIn">
       {/* Registration Surface */}
       <section className="bg-surface p-8 rounded-institutional border border-brick/10 shadow-sm relative overflow-hidden">
         <div className="absolute top-0 right-0 w-32 h-32 bg-brick/5 rounded-full -mr-16 -mt-16" />
@@ -204,6 +249,34 @@ export default function CourseList({ onCourseList }: CourseListProps) {
 
       {/* Ledger Surface */}
       <div className="institutional-table-container">
+        <div className="p-4 border-b border-brick/10 bg-page/50 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+          <div className="flex flex-1 max-w-2xl gap-2">
+            <div className="relative flex-1 group">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-brick group-focus-within:scale-110 transition-transform">
+                <FiSearch size={16} />
+              </div>
+              <input
+                type="text"
+                placeholder="Search by Code or Title..."
+                className="w-full pl-10 pr-4 py-2.5 bg-surface border border-brick/10 rounded-institutional text-sm font-bold text-institutional-primary focus:outline-none focus:ring-2 focus:ring-brick/20 transition-all shadow-sm"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <button
+              className="px-6 py-2.5 bg-brick text-white rounded-institutional text-[10px] font-black uppercase tracking-widest shadow-md hover:bg-brick-deep transition-all flex items-center gap-2 shrink-0"
+              onClick={() =>
+                toast.info(`Curriculum filtered by: ${searchQuery || "All"}`)
+              }
+            >
+              <FiSearch size={14} /> Search
+            </button>
+          </div>
+          <div className="text-[10px] font-black uppercase text-institutional-muted tracking-widest bg-brick/5 px-3 py-2 rounded-full border border-brick/10 inline-flex items-center self-start md:self-center">
+            Registry: {filteredCourses.length} assets
+          </div>
+        </div>
+
         <table className="institutional-table">
           <thead>
             <tr>
@@ -217,7 +290,7 @@ export default function CourseList({ onCourseList }: CourseListProps) {
             </tr>
           </thead>
           <tbody className="divide-y divide-brick/5">
-            {courses.map((course) => (
+            {paginatedCourses.map((course) => (
               <tr
                 key={course.id}
                 className="hover:bg-brick/5 transition-colors group"
@@ -356,6 +429,39 @@ export default function CourseList({ onCourseList }: CourseListProps) {
             ))}
           </tbody>
         </table>
+
+        {totalPages > 1 && (
+          <div className="flex justify-between items-center px-4 py-4 border-t border-brick/10 bg-page/30">
+            <p className="text-[10px] uppercase font-bold text-institutional-muted tracking-widest">
+              Page {currentPage} of {totalPages}
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-4 py-2 bg-white border border-brick/10 rounded text-[10px] font-black uppercase disabled:opacity-50 hover:bg-brick/5 transition-all"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                }
+                disabled={currentPage === totalPages}
+                className="px-4 py-2 bg-white border border-brick/10 rounded text-[10px] font-black uppercase disabled:opacity-50 hover:bg-brick/5 transition-all"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
+        {filteredCourses.length === 0 && (
+          <div className="py-20 text-center opacity-40 italic">
+            {searchQuery
+              ? `No curriculum assets found matching "${searchQuery}"`
+              : "No institutional curriculum assets found in current registry."}
+          </div>
+        )}
       </div>
     </div>
   );

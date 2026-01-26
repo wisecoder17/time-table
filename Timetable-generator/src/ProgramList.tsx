@@ -7,7 +7,12 @@ import {
   FiXCircle,
   FiAward,
   FiBookOpen,
+  FiChevronDown,
 } from "react-icons/fi";
+import {
+  departmentService,
+  Department,
+} from "./services/api/departmentService";
 
 interface Program {
   id: string;
@@ -34,6 +39,7 @@ export default function ProgramList({ onProgramList }: ProgramListProps) {
   });
 
   const [programs, setPrograms] = useState<Program[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [editId, setEditId] = useState<string | null>(null);
   const [editProgData, setEditProgData] = useState<Partial<Program>>({});
 
@@ -84,6 +90,11 @@ export default function ProgramList({ onProgramList }: ProgramListProps) {
 
   useEffect(() => {
     fetchPrograms();
+    const fetchDepartments = async () => {
+      const data = await departmentService.getAll();
+      setDepartments(data);
+    };
+    fetchDepartments();
   }, []);
 
   const handleEditClick = (program: Program) => {
@@ -142,32 +153,71 @@ export default function ProgramList({ onProgramList }: ProgramListProps) {
 
         <form onSubmit={handleProgramSubmit} className="space-y-6">
           <div className="form-grid-institutional lg:grid-cols-4">
-            {[
-              {
-                label: "Programme Code",
-                name: "progCode",
-                placeholder: "e.g. B.Sc. CSC",
-              },
-              { label: "Official Designation", name: "pName", isWide: true },
-              { label: "Dept Affinity ID", name: "deptId" },
-              { label: "Modern Code Alias", name: "newCodeID" },
-            ].map((field) => (
-              <div
-                key={field.name}
-                className={`space-y-2 ${field.isWide ? "lg:col-span-2" : ""}`}
-              >
-                <label className="block text-[10px] font-black uppercase tracking-widest text-institutional-muted">
-                  {field.label}
-                </label>
-                <input
-                  type="text"
-                  name={field.name}
-                  className="w-full px-4 py-2.5 bg-page border border-brick/10 rounded-institutional text-sm font-bold text-institutional-primary focus:outline-none focus:ring-2 focus:ring-brick/20 transition-all font-sans"
-                  value={(formData as any)[field.name]}
-                  onChange={handleInputChangeForm}
-                />
+            <div className="space-y-2">
+              <label className="block text-[10px] font-black uppercase tracking-widest text-institutional-muted">
+                Programme Code
+              </label>
+              <input
+                type="text"
+                name="progCode"
+                placeholder="e.g. B.Sc. CSC"
+                className="w-full px-4 py-2.5 bg-page border border-brick/10 rounded-institutional text-sm font-bold text-institutional-primary focus:outline-none focus:ring-2 focus:ring-brick/20 transition-all"
+                value={formData.progCode}
+                onChange={handleInputChangeForm}
+              />
+            </div>
+
+            <div className="space-y-2 lg:col-span-2">
+              <label className="block text-[10px] font-black uppercase tracking-widest text-institutional-muted">
+                Official Designation
+              </label>
+              <input
+                type="text"
+                name="pName"
+                className="w-full px-4 py-2.5 bg-page border border-brick/10 rounded-institutional text-sm font-bold text-institutional-primary focus:outline-none focus:ring-2 focus:ring-brick/20 transition-all"
+                value={formData.pName}
+                onChange={handleInputChangeForm}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-[10px] font-black uppercase tracking-widest text-institutional-muted">
+                Dept Affinity
+              </label>
+              <div className="relative">
+                <select
+                  name="deptId"
+                  className="w-full px-4 py-2.5 bg-page border border-brick/10 rounded-institutional text-sm font-bold text-institutional-primary focus:outline-none focus:ring-2 focus:ring-brick/20 transition-all appearance-none"
+                  value={formData.deptId}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, deptId: e.target.value }))
+                  }
+                >
+                  <option value="">Select Dept</option>
+                  {departments.map((dept) => (
+                    <option key={dept.id} value={dept.id}>
+                      {dept.name}
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-institutional-muted">
+                  <FiChevronDown />
+                </div>
               </div>
-            ))}
+            </div>
+
+            <div className="space-y-2 lg:col-span-1">
+              <label className="block text-[10px] font-black uppercase tracking-widest text-institutional-muted">
+                Modern Code Alias
+              </label>
+              <input
+                type="text"
+                name="newCodeID"
+                className="w-full px-4 py-2.5 bg-page border border-brick/10 rounded-institutional text-sm font-bold text-institutional-primary focus:outline-none focus:ring-2 focus:ring-brick/20 transition-all"
+                value={formData.newCodeID}
+                onChange={handleInputChangeForm}
+              />
+            </div>
           </div>
           <div className="pt-4 border-t border-brick/5">
             <button
@@ -225,7 +275,7 @@ export default function ProgramList({ onProgramList }: ProgramListProps) {
                       />
                     </td>
                     <td className="px-4 py-2 text-center">
-                      <input
+                      <select
                         value={editProgData.deptID}
                         onChange={(e) =>
                           setEditProgData((p) => ({
@@ -233,8 +283,14 @@ export default function ProgramList({ onProgramList }: ProgramListProps) {
                             deptID: e.target.value,
                           }))
                         }
-                        className="w-16 mx-auto bg-page border border-brick/20 px-2 py-1 rounded text-xs text-center"
-                      />
+                        className="w-full bg-page border border-brick/20 px-2 py-1 rounded text-xs font-bold"
+                      >
+                        {departments.map((dept) => (
+                          <option key={dept.id} value={dept.id}>
+                            {dept.code || dept.name}
+                          </option>
+                        ))}
+                      </select>
                     </td>
                     <td className="px-4 py-2 text-center">
                       <input
@@ -272,7 +328,17 @@ export default function ProgramList({ onProgramList }: ProgramListProps) {
                       {prog.name}
                     </td>
                     <td className="text-center font-black opacity-30">
-                      {prog.deptID}
+                      <span
+                        title={
+                          departments.find(
+                            (d) => String(d.id) === String(prog.deptID),
+                          )?.name
+                        }
+                      >
+                        {departments.find(
+                          (d) => String(d.id) === String(prog.deptID),
+                        )?.code || prog.deptID}
+                      </span>
                     </td>
                     <td className="text-center">
                       <span className="status-pill status-pill-info">

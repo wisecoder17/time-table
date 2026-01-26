@@ -2,47 +2,70 @@ import apiClient from "./client";
 import { handleApiError } from "../../utils/errorHandler";
 import { User } from "../../types/institutional";
 
-interface AuthResponse {
-  user: User;
-  token: string;
-}
+// Auth response is just User now
 
 /**
  * Institutional Authentication Service
  * Features: Secure credential verification and session orchestration.
  */
 export const authService = {
-  login: async (username: string, password?: string): Promise<AuthResponse> => {
+  login: async (username: string, password?: string): Promise<User> => {
     try {
-      // In TS refactor state, we support both full creds and mock bypass
-      const response = await apiClient.post<AuthResponse>("/users/login", {
+      const response = await apiClient.post<any>("/users/login", {
         username,
         password,
       });
-      if (response.data.token) {
-        localStorage.setItem("auth_token", response.data.token);
+
+      // Backend returns the User object directly, no token wrapper
+      const user = response.data;
+
+      if (user && user.username) {
+        localStorage.setItem("user_data", JSON.stringify(user));
+        localStorage.setItem("username", user.username);
       }
-      return response.data;
+
+      return mapBackendUserToFrontend(user);
     } catch (error: any) {
       throw handleApiError(error);
     }
   },
 
   logout: (): void => {
-    localStorage.removeItem("auth_token");
-    localStorage.removeItem("token"); // Legacy cleanup
+    localStorage.removeItem("user_data");
+    localStorage.removeItem("username");
+    localStorage.removeItem("auth_token"); // Cleanup old
   },
 
   isAuthenticated: (): boolean => {
-    return !!localStorage.getItem("auth_token");
+    return !!localStorage.getItem("username");
   },
 
   getCurrentUser: async (): Promise<User> => {
     try {
-      const response = await apiClient.get<User>("/users/me");
-      return response.data;
+      // Fallback to local storage if API is not available or just return stored user
+      // Validating against backend if possible
+      const username = localStorage.getItem("username");
+      if (!username) throw new Error("No active session");
+
+      const response = await apiClient.get<any>(`/users/${username}`);
+      return mapBackendUserToFrontend(response.data);
     } catch (error: any) {
+      // Fallback to stored data if network fail (optional)
+      const stored = localStorage.getItem("user_data");
+      if (stored) return mapBackendUserToFrontend(JSON.parse(stored));
+
       throw handleApiError(error);
     }
   },
+};
+
+// Helper to adapt Backend User to Frontend User Interface
+const mapBackendUserToFrontend = (backendUser: any): User => {
+  return {
+    id: backendUser.id?.toString() || "0",
+    username: backendUser.username,
+    role: backendUser.role, // Assumes Enum strings match "ADMIN", "LECTURER" etc
+    departmentId: backendUser.department?.id?.toString(),
+    // Map other fields if available
+  };
 };
