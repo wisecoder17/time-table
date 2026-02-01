@@ -1,11 +1,37 @@
 import React from "react";
 import VenueList from "../VenueList";
+import { useAuthStore } from "../services/state/authStore";
+import { FiShield } from "react-icons/fi";
 
 /**
  * Institutional Infrastructure Asset Page
  * Orchestrates the management of academic venues and spatial resources.
  */
 const VenuesPage: React.FC = () => {
+  const { user } = useAuthStore();
+  // Allow Admin (AD/1) and College Rep (CR/2)
+  const canAccess =
+    user?.roleCode === "AD" ||
+    user?.roleCode === "CR" ||
+    user?.roleId === 1 ||
+    user?.roleId === 2;
+
+  if (!canAccess) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 text-center space-y-4 opacity-50">
+        <FiShield className="text-6xl text-brick" />
+        <h2 className="text-xl font-black uppercase text-brick tracking-widest">
+          Access Restricted
+        </h2>
+        <p className="text-xs font-bold text-institutional-muted max-w-md">
+          Infrastructure Portfolio management is restricted to Administrators
+          and College Representatives. Please contact the Registry for
+          assistance.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <>
       {/* Unified Institutional Sticky Header */}

@@ -46,6 +46,11 @@ public class Studentserviceimp implements Studentservice {
     }
 
     @Override
+    public List<Student> getStudentsByCollege(Integer collegeId) {
+        return studentrepository.findByDepartmentCentreId(collegeId);
+    }
+
+    @Override
     @Transactional
     public Student updateStudent(Integer id, Student updated, String actorUsername) {
         Student existing = studentrepository.findById(id)

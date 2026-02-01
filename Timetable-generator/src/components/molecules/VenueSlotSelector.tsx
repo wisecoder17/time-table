@@ -35,8 +35,6 @@ const VenueSlotSelector: React.FC<VenueSlotSelectorProps> = ({
     useState<string[]>(initialSelected);
   const [searchQuery, setSearchQuery] = useState("");
 
-  if (!isOpen) return null;
-
   // Filter venues based on search query
   const filteredVenues = useMemo(() => {
     if (!searchQuery.trim()) return availableVenues;
@@ -48,6 +46,9 @@ const VenueSlotSelector: React.FC<VenueSlotSelectorProps> = ({
         venue.name.toLowerCase().includes(query),
     );
   }, [searchQuery, availableVenues]);
+
+  // Early return AFTER all hooks
+  if (!isOpen) return null;
 
   const toggleVenue = (venueCode: string) => {
     setSelectedVenues((prev) =>

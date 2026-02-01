@@ -75,9 +75,29 @@ If Gradle is too large to download:
 ## 🔧 5. Integration Notes
 
 - **API Base**: `http://localhost:8080`
-- **Login**: The frontend is currently in **Mock Mode** for easier UI development. To connect it to your database:
-  - In `src/Authenticate.tsx`, update the `login` function to call `authService.login`.
-  - In `src/LoginComponent.tsx`, update `handleSubmit` to call the `authService`.
+- **Frontend**: Fully integrated with backend authentication
+- **RBAC**: All requests include `X-Actor-Username` header
+- **Security**: Role-based access control enforced on all endpoints
+
+---
+
+## 🔐 6. First Login
+
+1. Create an admin user via API:
+
+   ```bash
+   POST http://localhost:8080/users/register
+   {
+     "username": "admin",
+     "password": "your_password",
+     "role": { "id": 1 },
+     "email": "admin@bellsuniversity.edu.ng"
+   }
+   ```
+
+2. Login via frontend at `http://localhost:3000`
+
+3. The system will automatically enforce RBAC based on your role.
 
 ---
 

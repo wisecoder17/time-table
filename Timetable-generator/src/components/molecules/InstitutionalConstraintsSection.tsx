@@ -1,5 +1,13 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { FiPlus, FiLock, FiX, FiRotateCcw } from "react-icons/fi";
+import {
+  FiPlus,
+  FiLock,
+  FiX,
+  FiRotateCcw,
+  FiCalendar,
+  FiMapPin,
+  FiZap,
+} from "react-icons/fi";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "react-toastify";
 import InputChip, { CourseOption } from "./InputChip";
@@ -22,6 +30,7 @@ interface ConstraintGroup {
   label: string;
   description: string;
   type: "period" | "venue";
+  category: "exam" | "venue" | "advanced";
 }
 
 interface InstitutionalConstraintsSectionProps {
@@ -31,6 +40,7 @@ interface InstitutionalConstraintsSectionProps {
   maxPeriods?: number;
   initialConstraints?: Record<string, string>;
   onLoadHistory?: () => Promise<ConstraintSnapshot[]>;
+  readOnly?: boolean;
 }
 
 const CONSTRAINT_GROUPS: ConstraintGroup[] = [
@@ -39,62 +49,81 @@ const CONSTRAINT_GROUPS: ConstraintGroup[] = [
     label: "Period Inclusive Exams",
     description: "Exams that must be scheduled in specific time periods",
     type: "period",
+    category: "exam",
   },
   {
     key: "periodExcE",
     label: "Period Exclusive Exams",
     description: "Exams that cannot be scheduled in certain periods",
     type: "period",
+    category: "exam",
   },
   {
     key: "venueIncE",
     label: "Venue Inclusive Exams",
     description: "Exams that must use certain venues",
     type: "venue",
+    category: "venue",
   },
   {
     key: "venueExcE",
     label: "Venue Exclusive Exams",
     description: "Exams that cannot use certain venues",
     type: "venue",
+    category: "venue",
   },
   {
     key: "periodIncV",
     label: "Period Inclusive Venues",
     description: "Venues available only in specific periods",
     type: "period",
+    category: "venue",
   },
   {
     key: "periodExcV",
     label: "Period Exclusive Venues",
     description: "Venues unavailable in specific periods",
     type: "period",
+    category: "venue",
   },
   {
     key: "examWAftE",
     label: "Exams After Exams",
     description: "Specify exam sequences",
     type: "period",
+    category: "advanced",
   },
   {
     key: "examExcE",
     label: "Exclusive Exams",
     description: "Exams that cannot occur together",
     type: "period",
+    category: "advanced",
   },
   {
     key: "examWCoinE",
     label: "Coinciding Exams",
     description: "Exams that must occur at the same time",
     type: "period",
+    category: "advanced",
   },
   {
     key: "frontLE",
     label: "Front Loaded Exams",
     description: "Important exams scheduled earlier",
     type: "period",
+    category: "advanced",
   },
 ];
+
+type TabType = "exam" | "venue" | "advanced";
+
+const TAB_CONFIG: Array<{ id: TabType; label: string; icon: React.ReactNode }> =
+  [
+    { id: "exam", label: "Exam Constraints", icon: <FiCalendar /> },
+    { id: "venue", label: "Venue Constraints", icon: <FiMapPin /> },
+    { id: "advanced", label: "Advanced", icon: <FiZap /> },
+  ];
 
 /**
  * InstitutionalConstraintsSection Component
@@ -114,6 +143,7 @@ const InstitutionalConstraintsSection: React.FC<
   maxPeriods = 10,
   initialConstraints = {},
   onLoadHistory,
+  readOnly = false,
 }) => {
   // State management
   const [constraints, setConstraints] = useState<
@@ -143,6 +173,9 @@ const InstitutionalConstraintsSection: React.FC<
 
   // State to track which group is currently adding a course
   const [addingToGroup, setAddingToGroup] = useState<string | null>(null);
+
+  // Active tab state
+  const [activeTab, setActiveTab] = useState<TabType>("exam");
 
   // Initialize constraints from props
   useEffect(() => {
@@ -210,26 +243,60 @@ const InstitutionalConstraintsSection: React.FC<
 
   // Handle period selection
   const handlePeriodSelect = (periods: number[]) => {
-    if (activeSelector && pendingChip) {
-      setConfirmModal({
-        isOpen: true,
-        action: "add",
-        constraintKey: activeSelector.constraintKey,
-        details: `Add ${pendingChip.course.code} with periods ${periods.join(", ")}?`,
-      });
+    if (activeSelector) {
+      if (pendingChip) {
+        // Adding new constraint
+        if (activeSelector && pendingChip) {
+          setConfirmModal({
+            isOpen: true,
+            action: "add",
+            constraintKey: activeSelector.constraintKey,
+            details: `Add ${pendingChip.course.code} with periods ${periods.join(", ")}?`,
+          });
+        }
+      } else if (activeSelector.entryIndex !== null) {
+        // Editing existing constraint
+        setConstraints((prev) => {
+          const list = [...(prev[activeSelector.constraintKey] || [])];
+          if (list[activeSelector.entryIndex!]) {
+            list[activeSelector.entryIndex!] = {
+              ...list[activeSelector.entryIndex!],
+              periods: periods,
+            };
+          }
+          return { ...prev, [activeSelector.constraintKey]: list };
+        });
+        toast.success("Constraint updated");
+      }
     }
     setActiveSelector(null);
   };
 
   // Handle venue selection
   const handleVenueSelect = (venues: string[]) => {
-    if (activeSelector && pendingChip) {
-      setConfirmModal({
-        isOpen: true,
-        action: "add",
-        constraintKey: activeSelector.constraintKey,
-        details: `Add ${pendingChip.course.code} with venues ${venues.join(", ")}?`,
-      });
+    if (activeSelector) {
+      if (pendingChip) {
+        // Adding new constraint
+        setConfirmModal({
+          isOpen: true,
+          action: "add",
+          constraintKey: activeSelector.constraintKey,
+          details: `Add ${pendingChip.course.code} with venues ${venues.join(", ")}?`,
+        });
+      } else if (activeSelector.entryIndex !== null) {
+        // Editing existing constraint
+        setConstraints((prev) => {
+          const list = [...(prev[activeSelector.constraintKey] || [])];
+          if (list[activeSelector.entryIndex!]) {
+            list[activeSelector.entryIndex!] = {
+              ...list[activeSelector.entryIndex!],
+              venues: venues,
+            };
+          }
+          return { ...prev, [activeSelector.constraintKey]: list };
+        });
+        toast.success("Constraint updated");
+      }
     }
     setActiveSelector(null);
   };
@@ -569,128 +636,154 @@ const InstitutionalConstraintsSection: React.FC<
         />
       </div>
 
-      {/* Constraint Groups Grid */}
+      {/* Tab Navigation */}
+      <div className="flex gap-2 border-b border-brick/10 mb-6">
+        {TAB_CONFIG.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-2 px-4 py-3 text-xs font-black uppercase tracking-wider transition-all relative ${
+              activeTab === tab.id
+                ? "text-brick border-b-2 border-brick"
+                : "text-institutional-muted hover:text-brick/70"
+            }`}
+          >
+            {tab.icon}
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Constraint Groups Grid (Filtered by Active Tab) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <AnimatePresence>
-          {CONSTRAINT_GROUPS.map((group) => (
-            <motion.div
-              key={group.key}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="bg-page/50 border border-brick/5 rounded-institutional p-4 flex flex-col"
-            >
-              {/* Group Header */}
-              <div className="mb-4 pb-3 border-b border-brick/10">
-                <h3 className="text-sm font-black text-institutional-primary">
-                  {group.label}
-                </h3>
-                <p className="text-[10px] text-institutional-muted italic mt-1">
-                  {group.description}
-                </p>
-              </div>
+          {CONSTRAINT_GROUPS.filter((g) => g.category === activeTab).map(
+            (group) => (
+              <motion.div
+                key={group.key}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+                className="bg-page/50 border border-brick/5 rounded-institutional p-4 flex flex-col"
+              >
+                {/* Group Header */}
+                <div className="mb-4 pb-3 border-b border-brick/10">
+                  <h3 className="text-sm font-black text-institutional-primary">
+                    {group.label}
+                  </h3>
+                  <p className="text-[10px] text-institutional-muted italic mt-1">
+                    {group.description}
+                  </p>
+                </div>
 
-              {/* Chip Container with Overflow Prevention */}
-              <div className="flex-1 mb-4 overflow-hidden">
-                <div className="max-h-[180px] overflow-y-auto flex flex-wrap gap-2 p-2 bg-surface rounded border border-brick/10 content-start">
-                  {constraints[group.key]?.length > 0 ? (
-                    <AnimatePresence>
-                      {constraints[group.key].map((entry, idx) => {
-                        const displayValue =
-                          group.type === "period"
-                            ? `${entry.courseCode}(${(entry.periods || []).join(",")})`
-                            : `${entry.courseCode}(${(entry.venues || []).join(",")})`;
+                {/* Chip Container with Overflow Prevention */}
+                <div className="flex-1 mb-4 overflow-hidden">
+                  <div className="max-h-[180px] overflow-y-auto flex flex-wrap gap-2 p-2 bg-surface rounded border border-brick/10 content-start">
+                    {constraints[group.key]?.length > 0 ? (
+                      <AnimatePresence>
+                        {constraints[group.key].map((entry, idx) => {
+                          const displayValue =
+                            group.type === "period"
+                              ? `${entry.courseCode}(${(entry.periods || []).join(",")})`
+                              : `${entry.courseCode}(${(entry.venues || []).join(",")})`;
 
-                        return (
-                          <motion.div
-                            key={`${entry.courseCode}-${idx}`}
-                            initial={{ scale: 0.8, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.8, opacity: 0 }}
-                            transition={{ type: "spring", stiffness: 300 }}
-                          >
-                            <div
-                              onClick={() =>
-                                setActiveSelector({
-                                  type: group.type,
-                                  constraintKey: group.key,
-                                  entryIndex: idx,
-                                })
-                              }
-                              className="flex items-center gap-2 px-3 py-2 bg-brick/10 border border-brick/30 rounded-full text-xs font-bold text-brick hover:bg-brick/20 cursor-pointer transition-all"
+                          return (
+                            <motion.div
+                              key={`${entry.courseCode}-${idx}`}
+                              initial={{ scale: 0.8, opacity: 0 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              exit={{ scale: 0.8, opacity: 0 }}
+                              transition={{ type: "spring", stiffness: 300 }}
                             >
-                              <span className="truncate max-w-[120px]">
-                                {displayValue}
-                              </span>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleRemoveEntry(group.key, idx);
-                                }}
-                                className="ml-1 flex items-center justify-center w-4 h-4 rounded-full hover:bg-brick/30 transition-all"
-                                type="button"
-                                aria-label="Remove"
+                              <div
+                                onClick={() =>
+                                  setActiveSelector({
+                                    type: group.type,
+                                    constraintKey: group.key,
+                                    entryIndex: idx,
+                                  })
+                                }
+                                className="flex items-center gap-2 px-3 py-2 bg-brick/10 border border-brick/30 rounded-full text-xs font-bold text-brick hover:bg-brick/20 cursor-pointer transition-all"
                               >
-                                ✕
-                              </button>
-                            </div>
-                          </motion.div>
-                        );
-                      })}
-                    </AnimatePresence>
-                  ) : (
-                    <div className="text-center text-xs text-institutional-muted italic py-6 w-full">
-                      No constraints added
-                    </div>
-                  )}
+                                <span className="truncate max-w-[120px]">
+                                  {displayValue}
+                                </span>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRemoveEntry(group.key, idx);
+                                  }}
+                                  className="ml-1 flex items-center justify-center w-4 h-4 rounded-full hover:bg-brick/30 transition-all"
+                                  type="button"
+                                  aria-label="Remove"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            </motion.div>
+                          );
+                        })}
+                      </AnimatePresence>
+                    ) : (
+                      <div className="text-center text-xs text-institutional-muted italic py-6 w-full">
+                        No constraints added
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              {/* Add Interaction Area */}
-              {addingToGroup === group.key ? (
-                <div className="animate-fadeIn">
-                  <InputChip
-                    placeholder="Search Courses..."
-                    options={availableCourses}
-                    onSelect={(course) =>
-                      handleAddConstraint(group.key, course)
-                    }
-                  />
-                  <button
-                    onClick={() => setAddingToGroup(null)}
-                    className="mt-2 text-[10px] text-institutional-muted hover:text-brick underline"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setAddingToGroup(group.key)}
-                  className="w-full py-2.5 flex items-center justify-center gap-2 bg-brick/10 border border-brick/30 text-brick text-xs font-black uppercase tracking-wider rounded-institutional hover:bg-brick/20 transition-all active:scale-95"
-                  type="button"
-                >
-                  <FiPlus className="w-4 h-4" />
-                  Add Constraint
-                </button>
-              )}
-            </motion.div>
-          ))}
+                {/* Add Interaction Area */}
+                {addingToGroup === group.key ? (
+                  <div className="animate-fadeIn">
+                    <InputChip
+                      placeholder="Search Courses..."
+                      options={availableCourses}
+                      onSelect={(course) =>
+                        handleAddConstraint(group.key, course)
+                      }
+                    />
+                    <button
+                      onClick={() => setAddingToGroup(null)}
+                      className="mt-2 text-[10px] text-institutional-muted hover:text-brick underline"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  !readOnly && (
+                    <button
+                      onClick={() => setAddingToGroup(group.key)}
+                      className="w-full py-2.5 flex items-center justify-center gap-2 bg-brick/10 border border-brick/30 text-brick text-xs font-black uppercase tracking-wider rounded-institutional hover:bg-brick/20 transition-all active:scale-95"
+                      type="button"
+                    >
+                      <FiPlus className="w-4 h-4" />
+                      Add Constraint
+                    </button>
+                  )
+                )}
+              </motion.div>
+            ),
+          )}
         </AnimatePresence>
       </div>
 
       {/* Global Save Button */}
-      <div className="pt-4 border-t border-brick/10">
-        <button
-          onClick={handleSaveAll}
-          disabled={
-            isSaving || Object.values(constraints).every((c) => c.length === 0)
-          }
-          className="w-full py-3 px-6 bg-brick text-white text-sm font-black uppercase tracking-widest rounded-institutional hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-brick/20 active:scale-95"
-          type="button"
-        >
-          {isSaving ? "Saving..." : "Save All Changes"}
-        </button>
-      </div>
+      {!readOnly && (
+        <div className="pt-4 border-t border-brick/10">
+          <button
+            onClick={handleSaveAll}
+            disabled={
+              isSaving ||
+              Object.values(constraints).every((c) => c.length === 0)
+            }
+            className="w-full py-3 px-6 bg-brick text-white text-sm font-black uppercase tracking-widest rounded-institutional hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-brick/20 active:scale-95"
+            type="button"
+          >
+            {isSaving ? "Saving..." : "Save All Changes"}
+          </button>
+        </div>
+      )}
 
       {/* Modals */}
       <PeriodSlotSelector
@@ -701,6 +794,13 @@ const InstitutionalConstraintsSection: React.FC<
           handlePeriodSelect(periods);
         }}
         maxPeriods={maxPeriods}
+        initialSelected={
+          activeSelector && !pendingChip && activeSelector.entryIndex !== null
+            ? constraints[activeSelector.constraintKey]?.[
+                activeSelector.entryIndex
+              ]?.periods || []
+            : []
+        }
       />
 
       <VenueSlotSelector
@@ -711,6 +811,13 @@ const InstitutionalConstraintsSection: React.FC<
           handleVenueSelect(venues);
         }}
         availableVenues={availableVenues}
+        initialSelected={
+          activeSelector && !pendingChip && activeSelector.entryIndex !== null
+            ? constraints[activeSelector.constraintKey]?.[
+                activeSelector.entryIndex
+              ]?.venues || []
+            : []
+        }
       />
 
       <ConfirmModal

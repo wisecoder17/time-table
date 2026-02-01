@@ -48,9 +48,12 @@ public class Staffcontroller {
         }
 
         List<Staff> staffList;
+        String role = (actor.getRole() != null) ? actor.getRole().getCode() : "UNKNOWN";
         
-        if (actor.getRole() != null && "AD".equalsIgnoreCase(actor.getRole().getCode())) {
+        if ("AD".equalsIgnoreCase(role)) {
             staffList = staffservice.getAllStaff();
+        } else if ("CR".equalsIgnoreCase(role) && actor.getCollege() != null) {
+            staffList = staffservice.getStaffByCollege(actor.getCollege().getId());
         } else if (actor.getDepartment() != null) {
             staffList = staffservice.getStaffByDepartment(actor.getDepartment());
         } else {

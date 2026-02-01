@@ -44,9 +44,12 @@ public class Coursecontroller {
         }
 
         List<Course> courses;
+        String role = (actor.getRole() != null) ? actor.getRole().getCode() : "UNKNOWN";
         
-        if (actor.getRole() != null && "AD".equalsIgnoreCase(actor.getRole().getCode())) {
+        if ("AD".equalsIgnoreCase(role)) {
             courses = courseservice.getAllCourses();
+        } else if ("CR".equalsIgnoreCase(role) && actor.getCollege() != null) {
+            courses = courseservice.getCoursesByCollege(actor.getCollege().getId());
         } else if (actor.getDepartment() != null) {
             courses = courseservice.getCoursesByDepartment(actor.getDepartment());
         } else {

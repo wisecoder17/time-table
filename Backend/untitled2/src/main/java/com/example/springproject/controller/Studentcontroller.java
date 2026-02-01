@@ -36,9 +36,12 @@ public class Studentcontroller {
         }
 
         List<Student> students;
+        String role = (actor.getRole() != null) ? actor.getRole().getCode() : "UNKNOWN";
         
-        if (actor.getRole() != null && "AD".equalsIgnoreCase(actor.getRole().getCode())) {
+        if ("AD".equalsIgnoreCase(role)) {
             students = studentservice.getAllStudents();
+        } else if ("CR".equalsIgnoreCase(role) && actor.getCollege() != null) {
+            students = studentservice.getStudentsByCollege(actor.getCollege().getId());
         } else if (actor.getDepartment() != null) {
             students = studentservice.getStudentsByDepartment(actor.getDepartment());
         } else {

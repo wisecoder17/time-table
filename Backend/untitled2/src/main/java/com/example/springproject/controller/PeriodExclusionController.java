@@ -34,6 +34,9 @@ public class PeriodExclusionController {
     @Autowired
     private GeneralSettingsRepository generalSettingsRepository;
 
+    @Autowired
+    private com.example.springproject.service.PolicyEnforcementService policyService;
+
     @GetMapping("/mapping")
     public ResponseEntity<PeriodMappingResponse> getPeriodMapping(@RequestParam(required = false) Long settingsId) {
         GeneralSettings settings = (settingsId != null) ? 
@@ -81,6 +84,10 @@ public class PeriodExclusionController {
             return ResponseEntity.badRequest().body("GeneralSettings not found");
         }
         
+        // Enforce Admin-only access for defining exclusions
+        // Use the username from the request header if avail, or the specific param
+        policyService.enforceAlgorithmAccess(username);
+        
         try {
             validator.validate(request, settings);
         } catch (IllegalArgumentException e) {
@@ -118,7 +125,13 @@ public class PeriodExclusionController {
     }
 
     @PutMapping("/exclusions/{id}/activate")
-    public ResponseEntity<?> activateSnapshot(@PathVariable Long id) {
+    public ResponseEntity<?> activateSnapshot(
+            @PathVariable Long id,
+            @RequestHeader(value = "X-Actor-Username", defaultValue = "admin") String username
+    ) {
+        // Enforce Admin-only access for activating exclusions
+        policyService.enforceAlgorithmAccess(username);
+        
         try {
             periodExclusionService.activateSnapshot(id);
             return ResponseEntity.ok(Collections.singletonMap("message", "Snapshot activated"));

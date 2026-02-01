@@ -8,6 +8,7 @@ import {
   FiLock,
   FiSettings,
   FiX,
+  FiShield,
 } from "react-icons/fi";
 import { toast } from "react-toastify";
 import { generalSettingsService } from "../services/api/generalSettingsService";
@@ -16,12 +17,17 @@ import { algorithmService } from "../services/api/algorithmService";
 import { GeneralSettings } from "../types/institutional";
 import { periodExclusionService } from "../services/api/periodExclusionService";
 import { CalendarGrid } from "../components/CalendarPeriodSelector/CalendarGrid";
+import { useAuthStore } from "../services/state/authStore";
 
 /**
  * Institutional Academic Grid Orchestrator (Timetable)
  * Interactive calendar grid for period selection
  */
 const TimetablePage: React.FC = () => {
+  const { user } = useAuthStore();
+  // Fallback to roleId 1 for Admin if roleCode is missing or mismatched
+  const isAdmin = user?.roleCode === "AD" || user?.roleId === 1;
+
   // Core State
   const [settings, setSettings] = useState<Partial<GeneralSettings>>({});
   const [loadedConstraintId, setLoadedConstraintId] = useState<number | null>(
@@ -60,14 +66,29 @@ const TimetablePage: React.FC = () => {
     const loadReadiness = async () => {
       setIsLoading(true);
       try {
-        const [settingsData, constraintsData, activeExclusions, gHist, cHist] =
+        // 1. Fetch Public Data (Settings, Latest Constraints, Active Exclusions)
+        // These allows the Read-Only grid to render
+        const [settingsData, constraintsData, activeExclusions] =
           await Promise.all([
             generalSettingsService.get(),
             constraintService.getLatest(),
             periodExclusionService.getActiveExclusions(),
-            generalSettingsService.getHistory(),
-            constraintService.getHistory(),
           ]);
+
+        // 2. Fetch Admin-Only Data (Histories)
+        let gHist: GeneralSettings[] = [];
+        let cHist: any[] = [];
+
+        if (isAdmin) {
+          try {
+            [gHist, cHist] = await Promise.all([
+              generalSettingsService.getHistory(),
+              constraintService.getHistory(),
+            ]);
+          } catch (e) {
+            console.warn("Admin history fetch warning", e);
+          }
+        }
 
         if (settingsData) {
           setSettings(settingsData);
@@ -147,13 +168,23 @@ const TimetablePage: React.FC = () => {
           </p>
         </div>
         <div className="flex gap-4">
-          <button
-            onClick={() => setShowConfigSelector(!showConfigSelector)}
-            className="flex items-center gap-2 px-6 py-3 bg-institutional-primary text-white rounded-institutional text-[10px] font-black uppercase tracking-widest hover:brightness-110 transition-all shadow-md"
-          >
-            <FiSettings className={showConfigSelector ? "rotate-90" : ""} />
-            {showConfigSelector ? "Close Lock" : "Triple-Lock Selector"}
-          </button>
+          {!isAdmin && (
+            <div className="flex items-center gap-2 px-4 py-2 bg-brick/10 border border-brick/20 rounded-institutional">
+              <FiShield className="text-brick" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-brick">
+                Read-Only View
+              </span>
+            </div>
+          )}
+          {isAdmin && (
+            <button
+              onClick={() => setShowConfigSelector(!showConfigSelector)}
+              className="flex items-center gap-2 px-6 py-3 bg-institutional-primary text-white rounded-institutional text-[10px] font-black uppercase tracking-widest hover:brightness-110 transition-all shadow-md"
+            >
+              <FiSettings className={showConfigSelector ? "rotate-90" : ""} />
+              {showConfigSelector ? "Close Lock" : "Triple-Lock Selector"}
+            </button>
+          )}
           <button
             onClick={generateCsv}
             className="flex items-center gap-2 px-6 py-3 bg-white border border-brick/10 rounded-institutional text-[10px] font-black uppercase tracking-widest text-brick hover:bg-brick hover:text-white transition-all shadow-sm"
@@ -282,81 +313,88 @@ const TimetablePage: React.FC = () => {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Status Column */}
-        <div className="lg:col-span-4 space-y-5">
-          <section className="bg-surface p-6 rounded-institutional border border-brick/5 shadow-sm space-y-3">
-            <div className="flex items-center gap-3 border-b border-brick/5 pb-2">
-              <FiInfo className="text-brick text-lg" />
-              <h2 className="text-xs font-black uppercase tracking-widest text-brick">
-                System Readiness Checklist
-              </h2>
-            </div>
+        {/* Status Column - Hidden for non-admins */}
+        {isAdmin && (
+          <div className="lg:col-span-4 space-y-5">
+            <section className="bg-surface p-6 rounded-institutional border border-brick/5 shadow-sm space-y-3">
+              <div className="flex items-center gap-3 border-b border-brick/5 pb-2">
+                <FiInfo className="text-brick text-lg" />
+                <h2 className="text-xs font-black uppercase tracking-widest text-brick">
+                  System Readiness Checklist
+                </h2>
+              </div>
 
-            <div className="space-y-2">
-              {[
-                { label: "Academic Session Defined", valid: checklist.session },
-                { label: "Semester Cycle Active", valid: checklist.semester },
-                { label: "Grid Topology Configured", valid: checklist.grid },
-                {
-                  label: "Constraints Ledger Loaded",
-                  valid: checklist.constraints,
-                },
-                {
-                  label: "Exclusion Matrix Initialized",
-                  valid: checklist.exclusions,
-                },
-              ].map((item, idx) => (
-                <div
-                  key={idx}
-                  className={`p-3 rounded border flex items-center justify-between ${item.valid ? "bg-status-success/5 border-status-success/10" : "bg-status-warning/5 border-status-warning/10"}`}
-                >
-                  <span
-                    className={`text-[10px] font-bold uppercase ${item.valid ? "text-institutional-primary" : "text-institutional-muted"}`}
+              <div className="space-y-2">
+                {[
+                  {
+                    label: "Academic Session Defined",
+                    valid: checklist.session,
+                  },
+                  { label: "Semester Cycle Active", valid: checklist.semester },
+                  { label: "Grid Topology Configured", valid: checklist.grid },
+                  {
+                    label: "Constraints Ledger Loaded",
+                    valid: checklist.constraints,
+                  },
+                  {
+                    label: "Exclusion Matrix Initialized",
+                    valid: checklist.exclusions,
+                  },
+                ].map((item, idx) => (
+                  <div
+                    key={idx}
+                    className={`p-3 rounded border flex items-center justify-between ${item.valid ? "bg-status-success/5 border-status-success/10" : "bg-status-warning/5 border-status-warning/10"}`}
                   >
-                    {item.label}
-                  </span>
-                  {item.valid ? (
-                    <FiCheck className="text-status-success" />
-                  ) : (
-                    <div className="w-4 h-4 rounded-full border-2 border-status-warning/30" />
-                  )}
-                </div>
-              ))}
+                    <span
+                      className={`text-[10px] font-bold uppercase ${item.valid ? "text-institutional-primary" : "text-institutional-muted"}`}
+                    >
+                      {item.label}
+                    </span>
+                    {item.valid ? (
+                      <FiCheck className="text-status-success" />
+                    ) : (
+                      <div className="w-4 h-4 rounded-full border-2 border-status-warning/30" />
+                    )}
+                  </div>
+                ))}
 
-              {!Object.values(checklist).every(Boolean) && !isLoading && (
-                <div className="text-center p-4 bg-brick/5 rounded border border-brick/10">
-                  <p className="text-xs text-brick font-bold mb-1">
-                    Pre-Flight Use Only
-                  </p>
-                  <p className="text-[9px] text-institutional-muted">
-                    Complete all configurations in the Settings module designed
-                    for Admin access.
-                  </p>
-                </div>
-              )}
-            </div>
-          </section>
+                {!Object.values(checklist).every(Boolean) && !isLoading && (
+                  <div className="text-center p-4 bg-brick/5 rounded border border-brick/10">
+                    <p className="text-xs text-brick font-bold mb-1">
+                      Pre-Flight Use Only
+                    </p>
+                    <p className="text-[9px] text-institutional-muted">
+                      Complete all configurations in the Settings module
+                      designed for Admin access.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </section>
 
-          {/* Submit Button Section - Refactored to Left Column */}
-          <section className="bg-surface p-6 rounded-institutional border border-brick/5 shadow-sm mt-8">
-            <button
-              onClick={handleTimetableGeneration}
-              disabled={!Object.values(checklist).every(Boolean) || isLoading}
-              className="w-full px-6 py-4 bg-gradient-to-br from-gold to-gold-deep text-brick-deep rounded-institutional text-[11px] font-black uppercase tracking-[0.2em] shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-            >
-              Initiate Timetable Generation
-            </button>
-            <div className="mt-4 flex justify-between items-center text-[8px] font-black uppercase tracking-[0.2em] text-institutional-muted italic">
-              <span>Bells University Registry Engine v4.0</span>
-              <span className="flex items-center gap-1">
-                <FiActivity className="animate-pulse" /> System Online
-              </span>
-            </div>
-          </section>
-        </div>
+            {/* Submit Button Section */}
+            <section className="bg-surface p-6 rounded-institutional border border-brick/5 shadow-sm mt-8">
+              <button
+                onClick={handleTimetableGeneration}
+                disabled={!Object.values(checklist).every(Boolean) || isLoading}
+                className="w-full px-6 py-4 bg-gradient-to-br from-gold to-gold-deep text-brick-deep rounded-institutional text-[11px] font-black uppercase tracking-[0.2em] shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+              >
+                Initiate Timetable Generation
+              </button>
+              <div className="mt-4 flex justify-between items-center text-[8px] font-black uppercase tracking-[0.2em] text-institutional-muted italic">
+                <span>Bells University Registry Engine v4.0</span>
+                <span className="flex items-center gap-1">
+                  <FiActivity className="animate-pulse" /> System Online
+                </span>
+              </div>
+            </section>
+          </div>
+        )}
 
-        {/* Interactive Calendar Grid */}
-        <div className="lg:col-span-8 overflow-hidden">
+        {/* Interactive Calendar Grid - Expands to full width if admin controls are hidden */}
+        <div
+          className={`${isAdmin ? "lg:col-span-8" : "lg:col-span-12"} overflow-hidden`}
+        >
           {!checklist.grid ? (
             <section className="bg-surface p-12 rounded-institutional border border-brick/5 shadow-sm min-h-[600px] flex flex-col items-center justify-center text-center opacity-40">
               <div className="text-7xl mb-6 grayscale">📅</div>

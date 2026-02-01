@@ -44,6 +44,11 @@ public class Staffserviceimp implements Staffservice {
     public List<Staff> getStaffByDepartment(Department department) {
         return staffrepository.findByDepartment(department);
     }
+    
+    @Override
+    public List<Staff> getStaffByCollege(Integer collegeId) {
+        return staffrepository.findByDepartmentCentreId(collegeId);
+    }
 
     @Override
     @Transactional

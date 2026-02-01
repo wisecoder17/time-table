@@ -25,12 +25,21 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const { user } = useAuthStore();
   const location = useLocation();
 
+  // Role Check: Venues accessible by AD(1) and CR(2)
+  const canAccessVenues =
+    user?.roleCode === "AD" ||
+    user?.roleCode === "CR" ||
+    user?.roleId === 1 ||
+    user?.roleId === 2;
+
   const primaryNavigation = [
     { label: "Overview", path: "/dashboard", icon: <FiPieChart /> },
     { label: "Student Registry", path: "/students", icon: <FiUsers /> },
     { label: "Academic Staff", path: "/staff", icon: <FiActivity /> },
     { label: "Curriculum Assets", path: "/courses", icon: <FiBookOpen /> },
-    { label: "Physical Venues", path: "/venues", icon: <FiMapPin /> },
+    ...(canAccessVenues
+      ? [{ label: "Physical Venues", path: "/venues", icon: <FiMapPin /> }]
+      : []),
   ];
 
   const operationalNavigation = [

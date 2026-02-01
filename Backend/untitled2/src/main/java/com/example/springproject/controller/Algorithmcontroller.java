@@ -29,8 +29,8 @@ public class AlgorithmController {
         
         String actorUsername = (usernameParam != null) ? usernameParam : actorHeader;
         
-        // Enforce Admin access for algorithm triggering
-        // policyService.enforceScope(actorUsername, "ADMIN_ONLY", "EXECUTE"); 
+        // Enforce Admin-only access for algorithm triggering
+        policyService.enforceAlgorithmAccess(actorUsername);
         
         schedulerService.triggerAlgorithm(generalSettingsId, constraintId, exclusionSnapshotId);
         

@@ -44,6 +44,11 @@ public class Courseserviceimp implements Courseservice {
     public List<Course> getCoursesByDepartment(Department department) {
         return courserepository.findByDepartment(department);
     }
+    
+    @Override
+    public List<Course> getCoursesByCollege(Integer collegeId) {
+        return courserepository.findByDepartmentCentreId(collegeId);
+    }
 
     @Override
     @Transactional

@@ -25,12 +25,12 @@ import { courseService } from "../services/api/courseService";
 import { venueService } from "../services/api/venueService";
 import { generalSettingsService } from "../services/api/generalSettingsService";
 import { GeneralSettings } from "../types/institutional";
+import { useAuthStore } from "../services/state/authStore";
 
 interface OptimizationParameter {
   checked: boolean;
   value: string;
 }
-
 interface OptimizationAlgo {
   checked: boolean;
   parameters: any;
@@ -92,7 +92,16 @@ const mockVenues = [
  * Enforces institutional design and professional calibration surfaces.
  */
 const SettingsPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<string>("general");
+  const { user } = useAuthStore();
+  const isAdmin = user?.roleCode === "AD" || user?.roleId === 1;
+  const [activeTab, setActiveTab] = useState<string>(
+    isAdmin ? "general" : "health",
+  );
+
+  // Filter tabs: Admin sees all, Others see ONLY Health & Integrity
+  const visibleTabs = isAdmin
+    ? TABS
+    : TABS.filter((tab) => tab.id === "health");
 
   // General Orchestration State
   const [generalSettings, setGeneralSettings] = useState<
@@ -120,10 +129,12 @@ const SettingsPage: React.FC = () => {
   const [venues, setVenues] = useState<any[]>([]);
 
   React.useEffect(() => {
-    loadGeneralSettings();
-    loadLatestConstraints();
-    loadAssets();
-  }, []);
+    if (isAdmin) {
+      loadGeneralSettings();
+      loadLatestConstraints();
+      loadAssets();
+    }
+  }, [isAdmin]);
 
   const loadAssets = async () => {
     try {
@@ -369,7 +380,7 @@ const SettingsPage: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
         {/* Navigation Column */}
         <div className="lg:col-span-1 space-y-2">
-          {TABS.map((tab) => (
+          {visibleTabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
@@ -636,12 +647,14 @@ const SettingsPage: React.FC = () => {
                           ? "Open History Modal"
                           : "View History"}
                       </button>
-                      <button
-                        type="submit"
-                        className="px-8 py-3 bg-brick text-white text-[10px] font-black uppercase tracking-widest rounded shadow-lg shadow-brick/20 hover:scale-105 transition-all"
-                      >
-                        Save Configuration
-                      </button>
+                      {isAdmin && (
+                        <button
+                          type="submit"
+                          className="px-8 py-3 bg-brick text-white text-[10px] font-black uppercase tracking-widest rounded shadow-lg shadow-brick/20 hover:scale-105 transition-all"
+                        >
+                          Save Configuration
+                        </button>
+                      )}
                     </div>
                   </form>
 
@@ -717,6 +730,7 @@ const SettingsPage: React.FC = () => {
                   }))}
                   maxPeriods={10}
                   initialConstraints={currentConstraints}
+                  readOnly={!isAdmin}
                 />
               )}
 
@@ -755,12 +769,14 @@ const SettingsPage: React.FC = () => {
                       />
                     </div>
                     <div className="flex items-center gap-3 col-span-2">
-                      <button
-                        type="submit"
-                        className="px-10 py-3 bg-brick text-white text-[10px] font-black uppercase tracking-widest rounded shadow-lg shadow-brick/20 hover:scale-105 transition-all"
-                      >
-                        Authorize Parameters
-                      </button>
+                      {isAdmin && (
+                        <button
+                          type="submit"
+                          className="px-10 py-3 bg-brick text-white text-[10px] font-black uppercase tracking-widest rounded shadow-lg shadow-brick/20 hover:scale-105 transition-all"
+                        >
+                          Authorize Parameters
+                        </button>
+                      )}
                     </div>
                   </form>
                 </div>

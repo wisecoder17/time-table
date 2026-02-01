@@ -8,6 +8,7 @@ import java.util.Optional;
 
 public interface Studentrepository extends JpaRepository<Student, Integer> {
     List<Student> findByDepartment(Department department);
+    List<Student> findByDepartmentCentreId(Integer centreId);
     Optional<Student> findByMatricNo(String matricNo);
     boolean existsByMatricNo(String matricNo);
 }

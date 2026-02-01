@@ -2,6 +2,10 @@ package com.example.springproject.service;
 
 import com.example.springproject.model.Registration;
 import com.example.springproject.model.StudentSemesterRegistration;
+import com.example.springproject.model.Course;
+import com.example.springproject.model.Student;
+import com.example.springproject.repository.Courserepository;
+import com.example.springproject.repository.Studentrepository;
 import com.example.springproject.repository.Registrationrepository;
 import com.example.springproject.repository.StudentSemesterRegistrationrepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,22 +24,53 @@ public class Registrationserviceimp implements Registrationservice {
     private StudentSemesterRegistrationrepository semesterRegistrationRepository;
 
     @Autowired
+    private Studentrepository studentrepository;
+
+    @Autowired
+    private Courserepository courserepository;
+
+    @Autowired
     private PolicyEnforcementService policyService;
 
     @Override
     @Transactional
     public Registration saveRegistration(Registration registration, String actorUsername) {
+        // FETCH MANAGED ENTITIES
+        // Input registration likely contains transient Student/Course with only IDs.
+        // We must fetch full entities to ensure Department data is available for RBAC.
+        
+        if (registration.getStudent() == null || registration.getStudent().getId() == null) {
+             throw new IllegalArgumentException("Student ID is required");
+        }
+        if (registration.getCourse() == null || registration.getCourse().getId() == null) {
+             throw new IllegalArgumentException("Course ID is required");
+        }
+
+        Student student = studentrepository.findById(registration.getStudent().getId())
+                .orElseThrow(() -> new RuntimeException("Student not found with ID: " + registration.getStudent().getId()));
+        
+        Course course = courserepository.findById(registration.getCourse().getId())
+                .orElseThrow(() -> new RuntimeException("Course not found with ID: " + registration.getCourse().getId()));
+
+        // Update registration object with managed entities
+        registration.setStudent(student);
+        registration.setCourse(course);
+
         // DIV-01: Scope Verification
         // Verify if the actor has permission to register students in this department/college
+        if (student.getDepartment() == null) {
+             throw new RuntimeException("Student has no assigned department (Data Integrity Error)");
+        }
+        
         policyService.enforceScope(
             actorUsername, 
-            registration.getStudent().getDepartment().getId(),
-            registration.getStudent().getDepartment().getCentre().getId()
+            student.getDepartment().getId(),
+            student.getDepartment().getCentre().getId()
         );
 
         // ENROLLMENT-FIRST PRINCIPLE CHECK
         boolean isEnrolled = semesterRegistrationRepository.existsByStudentAndSessionAndSemester(
-            registration.getStudent(), 
+            student, 
             registration.getSession(), 
             registration.getSemester()
         );
@@ -46,7 +81,7 @@ public class Registrationserviceimp implements Registrationservice {
 
         // Check for double registration
         if (registrationrepository.existsByStudentAndCourseAndSession(
-            registration.getStudent(), registration.getCourse(), registration.getSession())) {
+            student, course, registration.getSession())) {
             throw new RuntimeException("Student is already registered for this course.");
         }
 

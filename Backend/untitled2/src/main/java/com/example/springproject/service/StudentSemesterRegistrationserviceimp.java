@@ -1,6 +1,8 @@
 package com.example.springproject.service;
 
 import com.example.springproject.model.StudentSemesterRegistration;
+import com.example.springproject.model.Student;
+import com.example.springproject.repository.Studentrepository;
 import com.example.springproject.repository.StudentSemesterRegistrationrepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -17,14 +19,27 @@ public class StudentSemesterRegistrationserviceimp implements StudentSemesterReg
     @Autowired
     private PolicyEnforcementService policyService;
 
+    @Autowired
+    private Studentrepository studentrepository;
+
     @Override
     @Transactional
     public StudentSemesterRegistration saveStudentSemesterRegistration(StudentSemesterRegistration registration, String actorUsername) {
+        // FETCH MANAGED STUDENT
+        if (registration.getStudent() == null || registration.getStudent().getId() == null) {
+             throw new IllegalArgumentException("Student ID is required");
+        }
+
+        Student student = studentrepository.findById(registration.getStudent().getId())
+                .orElseThrow(() -> new RuntimeException("Student not found with ID: " + registration.getStudent().getId()));
+        
+        registration.setStudent(student);
+
         // DIV: Scope Verification
         policyService.enforceScope(
             actorUsername, 
-            registration.getStudent().getDepartment().getId(),
-            registration.getStudent().getDepartment().getCentre().getId()
+            student.getDepartment().getId(),
+            student.getDepartment().getCentre().getId()
         );
 
         // Prevent duplicate enrollment for same session/semester

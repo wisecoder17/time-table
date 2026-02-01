@@ -42,6 +42,16 @@ Considerations: will need to expand the
 - Examination Level to Schedule: All or selected Levels (default = All)
 - No of Weeks for Exam Duration (e.g., 1, 3). (default = 2) calculated from the start-end date and floored up (eg, 23days equals 4 weeks: 3wks and 2days)
 
+` ## The venues tab or access is for college rep upwards access also timetable genertion can only be done by the AD so it means the Operations Hub doesnt show in the rest levels
+
+` ## timetable grid period selctor (i.e Calendar Projection Surface)
+- Show the full week durations/period mapping (period is saved from 0 on the backend, can show 1 in the front up until the end week)
+- NOte we storing the execlusive period so thats what we ticking/selcting  as no period slots
+- Trying to make the ui, have like a mental/conceptual model mapaping so instead of plain mon,tues , shows the date (etc wed 24th while having the number of slot etc), the timetable slot should adjust with the number of days of the week as well (starting with monday)
+Ps: its the same idea but just shows the full view list of all the period slot of the exams days/weeks
+- then we brainstorm on how to perisist it to the db 
+
+
 ## i. getting mental, conceptual and business model rigt to get corr bw;
 1. examtab
 2. general_settings
@@ -50,11 +60,6 @@ Considerations: will need to expand the
 
 ## ii. working on the crud interface, corr with db & mental mapping 
 
-## The venues tab or access is for college rep upwards access also timetable genertion can only be done by the AD so it means the Operations Hub doesnt show in the rest levels
-
-## timetable grid period selctor (i.e Calendar Projection Surface)
-- Show the full week durations/period mapping (period is saved from 0 on the backend, can show 1 in the front up until the end week)
-- NOte we storing the execlusive period so thats what we ticking/selcting  as no period slots
-- Trying to make the ui, have like a mental/conceptual model mapaping so instead of plain mon,tues , shows the date (etc wed 24th while having the number of slot etc), the timetable slot should adjust with the number of days of the week as well (starting with monday)
-Ps: its the same idea but just shows the full view list of all the period slot of the exams days/weeks
-- then we brainstorm on how to perisist it to the db 
+## Consider:
+- The dashboard should be able to show the actual user name from the staff table
+- maually upload registration course, or student and courses

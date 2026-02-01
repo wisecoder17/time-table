@@ -7,5 +7,6 @@ import java.util.List;
 
 public interface Staffrepository extends JpaRepository<Staff, Integer> {
     List<Staff> findByDepartment(Department department);
+    List<Staff> findByDepartmentCentreId(Integer centreId);
     boolean existsByStaffId(String staffId);
 }
