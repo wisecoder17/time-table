@@ -36,7 +36,8 @@ public class PeriodCalculationService {
         int weekNumber = 1;
         
         // Generate a 7-day matrix backbone for each week processed
-        while (!currentDate.isAfter(endDate)) {
+        // Continue loop until we cover the entire date range AND we finish the final week (reached next Monday)
+        while (!currentDate.isAfter(endDate) || currentDate.getDayOfWeek() != java.time.DayOfWeek.MONDAY) {
             boolean isLocked = currentDate.isBefore(startDate) || currentDate.isAfter(endDate);
             // DEBUG: Log locking logic
             // System.out.println("Date: " + currentDate + " Start: " + startDate + " Locked: " + isLocked);

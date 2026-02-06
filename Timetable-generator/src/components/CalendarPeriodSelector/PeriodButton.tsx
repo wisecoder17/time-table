@@ -54,7 +54,7 @@ export const PeriodButton: React.FC<PeriodButtonProps> = ({
       title={tooltip}
       aria-label={ariaLabel}
     >
-      {isSystemLocked ? "L" : label}
+      {isSystemLocked ? "" : label}
     </button>
   );
 };

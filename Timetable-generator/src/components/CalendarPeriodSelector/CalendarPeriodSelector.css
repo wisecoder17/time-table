@@ -174,12 +174,9 @@
   filter: grayscale(1);
 }
 
-.period-button.system-locked::before {
-  content: "L";
-  font-size: 0.6rem;
-  font-weight: 900;
-  opacity: 0.5;
-}
+/* .period-button.system-locked::before {
+  content: "";
+} */
 
 /* Summary Bar Elite */
 .selection-summary {
