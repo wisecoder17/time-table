@@ -159,7 +159,8 @@ This document tracks the progress of the structural refactor (DB + Backend Align
 ## 📦 PHASE 14: INSTITUTIONAL CONTEXT PERSISTENCE & UNIVERSAL SYNC
 
 - [ ] **SYNC-01**: **Global Context Store**: Implement a Zustand store to manage the "Active Triad" (`activeGS`, `activeConstraint`, `activeExclusion`).
-- [ ] **SYNC-02**: **Reactive Grid Topology**: Ensure the Constraint Builder and Temporal Matrix modules reactively update their grid geometry when General Settings are modified.
+- [ ] **SYNC-02**: **Reactive Grid Topology**: Ensure the Constraint Builder and Temporal Matrix modules reacti
+      vely update their grid geometry when General Settings are modified.
 - [ ] **SYNC-03**: **Auto-Promotion Logic**: Automatically update the Selection Store with the newly created ID after any successful Database Save/Snapshot action.
 - [ ] **SYNC-04**: **Cross-Page Persistence**: Sync the selection store with `localStorage` and URL parameters to maintain configuration context during navigation.
 - [ ] **SYNC-05**: **Topology Integrity Guard**: Implement a validator that flags "Orphaned Snapshots"—constraints or exclusions built for a grid size that no longer matches the active General Settings.
@@ -186,7 +187,46 @@ This document tracks the progress of the structural refactor (DB + Backend Align
 
 ---
 
-_Status: 92% Structural Prep (Conceptual logic finalized)_
+## 🕒 PHASE 16: MONDAY-ANCHORED TEMPORAL MATRIX (NEW)
+
+- [x] **TIME-01**: **Backend: Monday Anchor Implementation**:
+  - [x] Update `PeriodMapping` DTO to include `isSystemLocked` boolean.
+  - [x] Refactor `PeriodCalculationService.java` to find the preceding Monday of `startDate` and use it as the 0-index anchor.
+  - [x] Implement logic to mark slots as `isSystemLocked` if `date < startDate` or `date > endDate`.
+- [x] **TIME-02**: **Frontend: Stable Indexing Migration**:
+  - [x] Update `CalendarGrid.tsx` and `PeriodSlotSelector.tsx` to handle the `isSystemLocked` property.
+  - [x] Visually disable and auto-exclude locked periods in the UI.
+  - [x] Ensure the global incrementing identifiers (1, 2, 3...) remain stable (Slot 0 is always Monday Morning).
+- [x] **TIME-03**: **Cross-Module Validation**:
+  - [x] Verify that all constraints (Period Inclusive, etc.) correctly map to the new anchored indices.
+  - [x] Update generation payload to include system-locked indices by default in the `excludedPeriods` array.
+
+---
+
+_Status: 90% Functional Alignment (Temporal refinement in progress)_
+
+## 🕒 TEMPORAL SCENARIOS (Monday Anchor)
+
+### Scenario A: Wednesday Start
+
+- **Dates**: Start Wed (June 4), End Tue (June 17).
+- **Anchor**: Mon (June 2).
+- **Indices 0-14 (Mon-Tue)**: marked `isSystemLocked=true`.
+- **Slot 15**: Wednesday Morning (P1).
+- **Result**: Even if the session opens Wednesday, the first two days of indices are "reserved" to prevent ID shifting.
+
+### Scenario B: Universal Communication
+
+- Coordinator says: "Exclude **Slot 0**".
+- In **ALL** sessions (Regular, TopUp, Part-time), Slot 0 refers to **Monday Morning, Week 1**, regardless of whether their specific exam starts Monday or Friday.
+
+### Scenario C: Weekend Buffer
+
+- Indices for Saturday/Sunday are generated if `daysPerWeek=5`.
+- They are marked `isSystemLocked=true`.
+- This ensures Monday of Week 2 always follows a predictable mathematical skip from Friday of Week 1.
+
+---
 
 ## 📝 NOTES & CLARIFICATIONS
 

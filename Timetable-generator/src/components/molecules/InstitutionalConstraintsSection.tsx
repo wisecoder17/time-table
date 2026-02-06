@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
-  FiPlus,
   FiLock,
   FiX,
   FiRotateCcw,
@@ -185,7 +184,7 @@ const InstitutionalConstraintsSection: React.FC<
     details?: string;
   }>({ isOpen: false, action: "add" });
   const [isSaving, setIsSaving] = useState(false);
-  const [snapshotName, setSnapshotName] = useState("");
+  const [snapshotName, setSnapshotName] = useState("Constraints_Draft_1");
   const [history, setHistory] = useState<ConstraintSnapshot[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
@@ -249,8 +248,21 @@ const InstitutionalConstraintsSection: React.FC<
       }
       return { ...prev, [constraintKey]: list };
     });
-    setIsDirty(true);
+    triggerDirtyState();
   };
+
+  const triggerDirtyState = useCallback(() => {
+    setIsDirty(true);
+    setSnapshotName((prev) => {
+      if (prev === "Constraints_Draft_1") {
+        return `REF_DRAFT_${new Date().getTime().toString().slice(-4)}`;
+      }
+      if (prev && !prev.includes("_Refined") && !prev.startsWith("REF_DRAFT")) {
+        return `${prev}_Refined`;
+      }
+      return prev;
+    });
+  }, []);
 
   const handleAddConstraint = (constraintKey: string, course: CourseOption) => {
     const group = CONSTRAINT_GROUPS.find((g) => g.key === constraintKey);
@@ -269,7 +281,7 @@ const InstitutionalConstraintsSection: React.FC<
           { courseCode: course.code, venues: ["SELECTED"], periods: [] },
         ],
       }));
-      setIsDirty(true);
+      triggerDirtyState();
       toast.success(`${course.code} added added to ${group.label}`);
       setAddingToGroup(null);
       return;
@@ -383,7 +395,7 @@ const InstitutionalConstraintsSection: React.FC<
       ...prev,
       [constraintKey]: [...(prev[constraintKey] || []), newEntry],
     }));
-    setIsDirty(true);
+    triggerDirtyState();
     toast.success(
       `${isCollective ? "Constraint" : pendingChip.course.code} added`,
     );
@@ -416,7 +428,7 @@ const InstitutionalConstraintsSection: React.FC<
         prev[confirmModal.constraintKey!] || []
       ).filter((_, i) => i !== confirmModal.entryIndex),
     }));
-    setIsDirty(true);
+    triggerDirtyState();
     toast.success("Constraint removed");
     setConfirmModal({ isOpen: false, action: "add" });
   }, [confirmModal]);

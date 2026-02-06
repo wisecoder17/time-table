@@ -221,23 +221,37 @@ const PeriodSlotSelector: React.FC<PeriodSlotSelectorProps> = ({
                         </span>
                       </div>
                       {row.cols.map((p, dayIdx) => {
+                        const isSystemLocked = p?.isSystemLocked || false;
                         const isExcluded = p
-                          ? excludedPeriods.includes(p.periodIndex)
+                          ? excludedPeriods.includes(p.periodIndex) ||
+                            isSystemLocked
                           : false;
                         return p ? (
                           <motion.button
                             key={p.periodIndex}
-                            whileHover={!isExcluded ? { scale: 1.05 } : {}}
-                            whileTap={!isExcluded ? { scale: 0.95 } : {}}
-                            onClick={() => togglePeriod(p.periodIndex)}
+                            whileHover={
+                              !isExcluded && !isSystemLocked
+                                ? { scale: 1.05 }
+                                : {}
+                            }
+                            whileTap={
+                              !isExcluded && !isSystemLocked
+                                ? { scale: 0.95 }
+                                : {}
+                            }
+                            onClick={() =>
+                              !isSystemLocked && togglePeriod(p.periodIndex)
+                            }
                             className={`
-                              h-12 rounded-lg border flex flex-col items-center justify-center transition-all relative
+                              period-button h-12 rounded-lg border flex flex-col items-center justify-center transition-all relative
                               ${
-                                isExcluded
-                                  ? "bg-brick/5 border-brick/10 text-institutional-muted cursor-not-allowed opacity-40 grayscale"
-                                  : selectedPeriods.includes(p.periodIndex)
-                                    ? "bg-brick border-brick text-white shadow-md shadow-brick/20"
-                                    : "bg-surface border-brick/5 text-institutional-primary hover:border-brick/20 hover:bg-brick/5"
+                                isSystemLocked
+                                  ? "system-locked opacity-50"
+                                  : isExcluded
+                                    ? "excluded opacity-40"
+                                    : selectedPeriods.includes(p.periodIndex)
+                                      ? "bg-brick border-brick text-white shadow-md shadow-brick/20"
+                                      : "available border-brick/5 text-institutional-primary hover:border-brick/20 hover:bg-brick/5"
                               }
                             `}
                           >
@@ -248,8 +262,11 @@ const PeriodSlotSelector: React.FC<PeriodSlotSelectorProps> = ({
                               !isExcluded && (
                                 <FiCheck className="absolute top-1 right-1 w-2.5 h-2.5" />
                               )}
-                            {isExcluded && (
+                            {isExcluded && !isSystemLocked && (
                               <FiLock className="absolute top-1 right-1 w-2.5 h-2.5 text-brick/40" />
+                            )}
+                            {isSystemLocked && (
+                              <FiLock className="absolute top-1 right-1 w-2.5 h-2.5 text-brick/60" />
                             )}
                           </motion.button>
                         ) : (

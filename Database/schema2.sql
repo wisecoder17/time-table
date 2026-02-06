@@ -224,7 +224,6 @@ CREATE TABLE period_exclusion_snapshots (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   general_settings_id BIGINT NOT NULL,
   name VARCHAR(255) NOT NULL DEFAULT 'Untitled Snapshot',
-  description TEXT DEFAULT NULL,
   excluded_periods VARCHAR(500) NOT NULL DEFAULT '',
   is_active BOOLEAN NOT NULL DEFAULT FALSE,
   created_by VARCHAR(100) NOT NULL DEFAULT 'system',
@@ -246,7 +245,6 @@ CREATE TABLE period_exclusion_snapshots (
 CREATE TABLE constraint_table (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) DEFAULT 'Untitled Snapshot',
-    description TEXT DEFAULT NULL,
     record_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     period_inc_e  VARCHAR(500) DEFAULT NULL,
     period_exc_e  VARCHAR(500) DEFAULT NULL,

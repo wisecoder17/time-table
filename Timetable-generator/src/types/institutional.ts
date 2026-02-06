@@ -213,6 +213,7 @@ export interface PeriodMapping {
   dayOfWeek: string;
   weekNumber: number;
   periodOfDay: number;
+  isSystemLocked?: boolean;
 }
 
 export interface PeriodMappingResponse {

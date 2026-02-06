@@ -70,19 +70,30 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
       const mapData = await periodExclusionService.getMapping(settingsId);
       setMapping(mapData);
 
+      // Identify system-locked periods from the mapping
+      const systemLockedIndices = mapData.periods
+        .filter((p) => p.isSystemLocked)
+        .map((p) => p.periodIndex);
+
       const activeData =
         await periodExclusionService.getActiveExclusions(settingsId);
       if (activeData) {
-        setExcludedIndices(new Set(activeData.excludedPeriods));
+        // Merge saved exclusions with current system-locked indices
+        const mergedExclusions = new Set([
+          ...activeData.excludedPeriods,
+          ...systemLockedIndices,
+        ]);
+        setExcludedIndices(mergedExclusions);
         setSnapshotName(activeData.name);
         setGeneralSettingsId(activeData.generalSettingsId);
         setSelectedSnapshotId(activeData.id);
-        // setExclusionId(activeData.id); // REMOVED: Selection must be manual/reviewed
       } else {
         const now = new Date();
         const dateStr = now.toISOString().slice(0, 10);
         const timeStr = now.toTimeString().slice(0, 5);
         setSnapshotName(`Exclusion Snapshot ${dateStr} ${timeStr}`);
+        // Seed exclusions with system-locked indices for new snapshots
+        setExcludedIndices(new Set(systemLockedIndices));
       }
     } catch (error) {
       console.error("Failed to load period data", error);
@@ -101,7 +112,12 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
   };
 
   const handleToggle = (periodIndex: number) => {
-    if (!isAdmin) return; // RBAC: Prevent interaction
+    if (!isAdmin) return;
+
+    // Prevent toggling if the period is system-locked
+    const p = mapping?.periods.find((item) => item.periodIndex === periodIndex);
+    if (p?.isSystemLocked) return;
+
     setExcludedIndices((prev) => {
       const next = new Set(prev);
       if (next.has(periodIndex)) {
@@ -173,11 +189,15 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
       isOpen: true,
       title: "Purge Matrix",
       message:
-        "Are you sure you want to purge all exclusions from the current buffer? This action cannot be undone.",
+        "Are you sure you want to purge all manual exclusions from the current buffer? System-locked periods will remain excluded.",
       onConfirm: () => {
-        setExcludedIndices(new Set());
+        // Keep only system-locked indices
+        const systemLockedIndices = mapping?.periods
+          .filter((p) => p.isSystemLocked)
+          .map((p) => p.periodIndex);
+        setExcludedIndices(new Set(systemLockedIndices || []));
         setConfirmState((prev) => ({ ...prev, isOpen: false }));
-        toast.info("Buffer purged.");
+        toast.info("Buffer purged (System locks preserved).");
       },
     });
   };
@@ -375,6 +395,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                           date={p.date}
                           periodOfDay={p.periodOfDay}
                           isExcluded={excludedIndices.has(p.periodIndex)}
+                          isSystemLocked={p.isSystemLocked}
                           onToggle={() => handleToggle(p.periodIndex)}
                           disabled={!isAdmin}
                         />

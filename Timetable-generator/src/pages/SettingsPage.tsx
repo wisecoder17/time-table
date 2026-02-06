@@ -258,9 +258,20 @@ const SettingsPage: React.FC = () => {
           if (Array.isArray(coursesData)) setCourses(coursesData);
           if (Array.isArray(venuesData)) setVenues(venuesData);
           if (Array.isArray(staffData)) setStaff(staffData);
-          if (mappingData) setPeriodMapping(mappingData);
-          if (exclusionsData)
+          if (mappingData) {
+            setPeriodMapping(mappingData);
+            const systemLocked = mappingData.periods
+              .filter((p: any) => p.isSystemLocked)
+              .map((p: any) => p.periodIndex);
+
+            const baseExclusions = exclusionsData?.excludedPeriods || [];
+            const merged = Array.from(
+              new Set([...baseExclusions, ...systemLocked]),
+            );
+            setExcludedPeriods(merged);
+          } else if (exclusionsData) {
             setExcludedPeriods(exclusionsData.excludedPeriods || []);
+          }
 
           if (latestConstraints) {
             // setConstraintId(latestConstraints.id || null); // REMOVED: Selection must be manual/reviewed
@@ -293,6 +304,23 @@ const SettingsPage: React.FC = () => {
     try {
       await generalSettingsService.update(generalSettings as GeneralSettings);
       setActiveGs(generalSettings); // Sync to global store on manual save
+
+      // Refresh context-dependent data (Mapping & Exclusions)
+      const [newMapping, newExclusions] = await Promise.all([
+        periodExclusionService.getMapping(generalSettings.id),
+        periodExclusionService.getActiveExclusions(generalSettings.id),
+      ]);
+      setPeriodMapping(newMapping);
+      if (newMapping) {
+        const systemLocked = newMapping.periods
+          .filter((p: any) => p.isSystemLocked)
+          .map((p: any) => p.periodIndex);
+        const baseExclusions = newExclusions?.excludedPeriods || [];
+        setExcludedPeriods(
+          Array.from(new Set([...baseExclusions, ...systemLocked])),
+        );
+      }
+
       toast.success(
         "Academic engine orchestration parameters updated and locked.",
       );
