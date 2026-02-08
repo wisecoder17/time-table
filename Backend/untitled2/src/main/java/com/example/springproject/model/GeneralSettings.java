@@ -41,7 +41,7 @@ public class GeneralSettings {
     private String campusType = "Single"; // Single or Multi
 
     @Column(name = "exam_level", length = 100)
-    private String examLevel = "All"; // All or specific levels (e.g. 100,200)
+    private String examLevel = "100,200,300,400,500"; // Specific levels (e.g. 100,200)
 
     @Column(name = "exam_weeks")
     private Integer examWeeks = 2;

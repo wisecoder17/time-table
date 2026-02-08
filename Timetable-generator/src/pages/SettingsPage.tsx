@@ -301,6 +301,17 @@ const SettingsPage: React.FC = () => {
 
   const handleGeneralSettingsSubmit = async (e: FormEvent) => {
     e.preventDefault();
+
+    // RICHO TAKE NOTE
+    if (
+      generalSettings.startDate &&
+      generalSettings.endDate &&
+      new Date(generalSettings.endDate) < new Date(generalSettings.startDate)
+    ) {
+      toast.error("End Date cannot be earlier than Start Date");
+      return;
+    }
+
     try {
       await generalSettingsService.update(generalSettings as GeneralSettings);
       setActiveGs(generalSettings); // Sync to global store on manual save
@@ -715,14 +726,21 @@ const SettingsPage: React.FC = () => {
                               <input
                                 type="checkbox"
                                 className="peer h-5 w-5 cursor-pointer appearance-none rounded border border-brick/20 bg-white checked:bg-brick checked:border-brick transition-all shadow-sm"
-                                checked={generalSettings.examLevel
-                                  ?.split(",")
-                                  .includes(level)}
+                                checked={
+                                  generalSettings.examLevel === "All" ||
+                                  generalSettings.examLevel
+                                    ?.split(",")
+                                    .includes(level)
+                                }
                                 onChange={(e) => {
                                   let currentLevels =
-                                    generalSettings.examLevel
-                                      ?.split(",")
-                                      .filter(Boolean) || [];
+                                    generalSettings.examLevel === "All"
+                                      ? ["100", "200", "300", "400", "500"]
+                                      : generalSettings.examLevel
+                                          ?.split(",")
+                                          .filter(
+                                            (l) => Boolean(l) && l !== "All",
+                                          ) || [];
 
                                   if (e.target.checked) {
                                     if (!currentLevels.includes(level))
@@ -746,7 +764,7 @@ const SettingsPage: React.FC = () => {
                               <FiCheckCircle className="absolute inset-0 m-auto h-3 w-3 text-white scale-0 peer-checked:scale-100 transition-transform pointer-events-none" />
                             </div>
                             <span className="text-xs font-bold text-institutional-primary group-hover:text-brick transition-all">
-                              L{level}
+                              {level}L
                             </span>
                           </label>
                         ))}
@@ -757,14 +775,17 @@ const SettingsPage: React.FC = () => {
                             setGeneralSettings((prev) => ({
                               ...prev,
                               examLevel:
-                                prev.examLevel === "100,200,300,400,500"
+                                prev.examLevel === "100,200,300,400,500" ||
+                                prev.examLevel === "All"
                                   ? ""
                                   : "100,200,300,400,500",
                             }))
                           }
                           className="text-[10px] font-black uppercase tracking-widest text-brick hover:underline"
                         >
-                          {generalSettings.examLevel === "100,200,300,400,500"
+                          {generalSettings.examLevel ===
+                            "100,200,300,400,500" ||
+                          generalSettings.examLevel === "All"
                             ? "Clear Selection"
                             : "Select All"}
                         </button>
