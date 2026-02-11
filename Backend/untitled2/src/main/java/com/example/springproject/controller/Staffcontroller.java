@@ -78,7 +78,7 @@ public class Staffcontroller {
         dto.setFirstname(staff.getFirstname());
         dto.setMiddlename(staff.getMiddlename());
         dto.setStatusId(staff.getStatusId());
-        dto.setInUse(staff.getInUse());
+        dto.setInUse(staff.getInUse() != null && staff.getInUse() == 1);
         dto.setDutyCount(staff.getDutyCount());
         dto.setCollegeId(staff.getCollege() != null ? staff.getCollege().getId() : null);
         return dto;
